@@ -2,6 +2,7 @@ import cors from 'cors';
 import express from 'express';
 import { errorHandler } from './middleware/error-handler';
 import chatRoutes from './modules/chat/chat.routes';
+import { env } from './config/env';
 
 /**
  * app.ts — Express application configuration.
@@ -19,12 +20,10 @@ import chatRoutes from './modules/chat/chat.routes';
 const app = express();
 
 // ── CORS ──────────────────────────────────────────────────────────
-// Allows the React app (localhost:5173) to call this API.
+// Allows the React app to call this API in local and deployed environments.
 // Without this, the browser blocks the request with a CORS error.
 //
-// PHASE 10 (Production Security):
-// Replace with a whitelist of production domains.
-app.use(cors({ origin: 'http://localhost:5173' }));
+app.use(cors({ origin: env.frontendUrl }));
 
 // ── Body Parsing ──────────────────────────────────────────────────
 // Parses JSON request bodies and puts them on req.body.

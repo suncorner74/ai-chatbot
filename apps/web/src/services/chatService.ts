@@ -26,10 +26,9 @@ import { ApiError } from '../types/chat';
  * - Components stay focused on UI
  * ─────────────────────────────────────────────────────────────────
  *
- * VITE PROXY:
- * We use '/api/chat' (relative URL) instead of 'http://localhost:5000/api/chat'.
- * Vite's dev server proxies /api/* to localhost:5000 automatically.
- * In production, you'd deploy both behind the same domain.
+ * API URL:
+ * The frontend reads the backend origin from VITE_API_URL. This value is a
+ * URL only; provider credentials remain on the backend.
  *
  * PHASE 3 (Auth):
  * Add Authorization header here — one change covers all API calls:
@@ -53,7 +52,8 @@ interface SendMessageErrorResponse {
  * @throws {Error} with the backend's error message if the request fails
  */
 export async function sendMessage(message: string): Promise<string> {
-  const response = await fetch('/api/chat', {
+  const API_URL = import.meta.env.VITE_API_URL;
+  const response = await fetch(`${API_URL}/api/chat`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
