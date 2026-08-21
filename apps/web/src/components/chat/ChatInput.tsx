@@ -1,4 +1,4 @@
-import React, { FormEvent, KeyboardEvent } from 'react';
+import { FormEvent, KeyboardEvent } from 'react';
 
 interface ChatInputProps {
   input: string;
