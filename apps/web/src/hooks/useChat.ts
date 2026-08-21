@@ -14,13 +14,23 @@ function generateId(): string {
 /**
  * The return type of useChat — explicit interface makes usage self-documenting.
  */
-interface UseChatReturn {
+export interface UseChatReturn {
   messages: ChatMessage[];
+  conversations: ChatConversation[];
+  activeConversationId: string;
   input: string;
   loading: boolean;
   error: string | null;
   setInput: (value: string) => void;
   handleSend: () => Promise<void>;
+  newChat: () => void;
+  selectConversation: (conversationId: string) => void;
+}
+
+export interface ChatConversation {
+  id: string;
+  title: string;
+  messages: ChatMessage[];
 }
 
 /**
@@ -60,10 +70,35 @@ interface UseChatReturn {
  *   → Cleared before each new request
  */
 export function useChat(): UseChatReturn {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [conversations, setConversations] = useState<ChatConversation[]>(() => {
+    const id = generateId();
+    return [{ id, title: 'New chat', messages: [] }];
+  });
+  const [activeConversationId, setActiveConversationId] = useState(
+    () => conversations[0].id
+  );
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const messages =
+    conversations.find(({ id }) => id === activeConversationId)?.messages ?? [];
+
+  const newChat = useCallback(() => {
+    const id = generateId();
+    setConversations((previous) => [
+      ...previous,
+      { id, title: 'New chat', messages: [] },
+    ]);
+    setActiveConversationId(id);
+    setInput('');
+    setError(null);
+  }, []);
+
+  const selectConversation = useCallback((conversationId: string) => {
+    setActiveConversationId(conversationId);
+    setInput('');
+    setError(null);
+  }, []);
 
   /**
    * useCallback prevents handleSend from being recreated on every render.
@@ -84,7 +119,17 @@ export function useChat(): UseChatReturn {
       content: trimmed,
     };
 
-    setMessages((prev) => [...prev, userMessage]);
+    setConversations((previous) => previous.map((conversation) => {
+      if (conversation.id !== activeConversationId) return conversation;
+
+      return {
+        ...conversation,
+        title: conversation.messages.length === 0
+          ? trimmed.slice(0, 32) || 'New chat'
+          : conversation.title,
+        messages: [...conversation.messages, userMessage],
+      };
+    }));
     setInput('');      // Clear the input box
     setLoading(true);  // Show the typing indicator
     setError(null);    // Clear any previous error
@@ -100,7 +145,11 @@ export function useChat(): UseChatReturn {
         content: responseText,
       };
 
-      setMessages((prev) => [...prev, assistantMessage]);
+      setConversations((previous) => previous.map((conversation) => (
+        conversation.id === activeConversationId
+          ? { ...conversation, messages: [...conversation.messages, assistantMessage] }
+          : conversation
+      )));
     } catch (err) {
       // Show a user-friendly error message
       setError(
@@ -112,7 +161,18 @@ export function useChat(): UseChatReturn {
       // Always stop loading, whether success or failure
       setLoading(false);
     }
-  }, [input, loading]);
+  }, [activeConversationId, input, loading]);
 
-  return { messages, input, loading, error, setInput, handleSend };
+  return {
+    messages,
+    conversations,
+    activeConversationId,
+    input,
+    loading,
+    error,
+    setInput,
+    handleSend,
+    newChat,
+    selectConversation,
+  };
 }

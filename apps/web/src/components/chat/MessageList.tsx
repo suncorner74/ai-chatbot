@@ -15,28 +15,31 @@ interface MessageListProps {
  * message arrives (like WhatsApp or ChatGPT).
  *
  * How it works:
- * 1. We create a `messagesEndRef` attached to an empty div at the bottom.
+ * 1. We create a ref attached to the scrollable message container.
  * 2. `useEffect` runs whenever the `messages` array changes.
- * 3. Inside `useEffect`, we call `.scrollIntoView()` on that empty div.
+ * 3. Inside `useEffect`, we move only that container to its scroll height.
  */
 export default function MessageList({ messages, loading }: MessageListProps) {
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const messagesContainer = messagesContainerRef.current;
+    if (messagesContainer) {
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
   }, [messages]);
 
   if (messages.length === 0) {
     return (
-      <div className="chat-messages chat-empty">
+      <div ref={messagesContainerRef} className="chat-messages chat-empty">
         <p>Send a message to start the conversation.</p>
       </div>
     );
   }
 
   return (
-    <div className="chat-messages">
+    <div ref={messagesContainerRef} className="chat-messages">
       {messages.map((msg) => (
         <MessageItem key={msg.id} message={msg} />
       ))}
@@ -53,8 +56,7 @@ export default function MessageList({ messages, loading }: MessageListProps) {
         </div>
       )}
 
-      {/* Invisible element used for auto-scrolling */}
-      <div ref={messagesEndRef} />
+      <div />
     </div>
   );
 }

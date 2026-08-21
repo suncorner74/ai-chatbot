@@ -1,4 +1,4 @@
-import { useChat } from '../../hooks/useChat';
+import { useChat, UseChatReturn } from '../../hooks/useChat';
 import ChatInput from './ChatInput';
 import './ChatWindow.css';
 import MessageList from './MessageList';
@@ -12,8 +12,13 @@ import MessageList from './MessageList';
  * Because we extracted all the complex state logic into useChat(),
  * this component is incredibly simple. It just passes props down.
  */
-export default function ChatWindow() {
-  const { messages, input, loading, error, setInput, handleSend } = useChat();
+interface ChatWindowProps {
+  chat?: UseChatReturn;
+}
+
+export default function ChatWindow({ chat }: ChatWindowProps) {
+  const localChat = useChat();
+  const { messages, input, loading, error, setInput, handleSend } = chat ?? localChat;
 
   return (
     <div className="chat-window">

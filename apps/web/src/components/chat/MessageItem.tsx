@@ -9,8 +9,8 @@ interface MessageItemProps {
  * 
  * In this minimalist layout:
  * - NO avatars are used.
- * - User messages are wrapped in a rounded pill.
- * - AI messages are raw plain text.
+ * - Both user and AI messages use the same rounded pill treatment.
+ * - Alignment identifies who sent each message.
  */
 export default function MessageItem({ message }: MessageItemProps) {
   return (
