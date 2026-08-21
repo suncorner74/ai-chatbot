@@ -1,0 +1,183 @@
+/* 
+ * Global Styles: Pure Minimalist Dark Mode (ChatGPT Style)
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+
+:root {
+  --bg-main: #09090e;
+  --bg-sidebar: rgba(255, 255, 255, 0.02);
+  --bg-hover: rgba(255, 255, 255, 0.05);
+  --bg-input: rgba(255, 255, 255, 0.05);
+  
+  --text-main: #ececec;
+  --text-muted: #8e8e8e;
+  
+  --sunvix-gradient: linear-gradient(135deg, #4f46e5 0%, #ec4899 100%);
+  --sunvix-glow: rgba(236, 72, 153, 0.3);
+  --border-color: rgba(255, 255, 255, 0.08);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Inter', -apple-system, sans-serif;
+  background-color: var(--bg-main);
+  color: var(--text-main);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden; 
+}
+
+/* --- App Layout & 3D Background --- */
+.app-container {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  position: relative;
+  z-index: 1;
+}
+
+.app-container::before,
+.app-container::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(100px);
+  z-index: -1;
+  animation: float 20s infinite ease-in-out alternate;
+}
+
+.app-container::before {
+  width: 500px;
+  height: 500px;
+  background: rgba(79, 70, 229, 0.2);
+  top: -10%;
+  left: -10%;
+}
+
+.app-container::after {
+  width: 600px;
+  height: 600px;
+  background: rgba(236, 72, 153, 0.15);
+  bottom: -20%;
+  right: -10%;
+  animation-delay: -10s;
+}
+
+@keyframes float {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(50px, 50px) scale(1.1); }
+  100% { transform: translate(-30px, 80px) scale(0.9); }
+}
+
+/* --- Sidebar (Frosted Glass) --- */
+.sidebar {
+  width: 260px;
+  background-color: var(--bg-sidebar);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  padding: 0.5rem;
+  color: var(--text-main);
+}
+
+.sidebar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.sidebar-header h2 {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.header-icons {
+  display: flex;
+  gap: 0.75rem;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.sidebar-menu {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  scrollbar-width: none; /* Hide scrollbar in sidebar */
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.6rem 0.5rem;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: var(--text-main);
+  font-size: 0.875rem;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.1s ease;
+}
+
+.menu-item:hover, .menu-item.active {
+  background: var(--bg-hover);
+}
+
+.menu-item .icon {
+  font-size: 1rem;
+}
+
+.menu-section {
+  margin-top: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.section-title {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  padding: 0.5rem;
+  font-weight: 500;
+}
+
+.sidebar-footer {
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.profile-circle {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #a855f7;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* --- Main Area --- */
+.app-main {
+  flex: 1;
+  background-color: var(--bg-main);
+  display: flex;
+  flex-direction: column;
+  min-width: 0; /* Important for flex child to not overflow */
+}

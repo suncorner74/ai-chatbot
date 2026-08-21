@@ -1,0 +1,13 @@
+{
+  "name": "ai-chatbot",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"pnpm --filter api dev\" \"pnpm --filter web dev\"",
+    "build": "pnpm --filter shared-types build && pnpm --filter api build && pnpm --filter web build",
+    "test": "pnpm --filter api test && pnpm --filter web test"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
