@@ -81,7 +81,7 @@
 .chat-input-container {
   position: relative;
   flex-shrink: 0;
-  padding: 1.5rem 2rem;
+  padding: 2.5rem 2rem;
   background: transparent;
   display: flex;
   justify-content: center;
@@ -198,4 +198,27 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+
+@media (max-width: 700px) {
+  .chat-messages {
+    padding-bottom: 9rem;
+  }
+
+  .chat-input-container {
+    position: fixed;
+    right: 0.75rem;
+    bottom: max(1rem, env(safe-area-inset-bottom));
+    left: 0.75rem;
+    z-index: 5;
+    width: auto;
+    margin-bottom: 0;
+    padding: 0.75rem 1rem 1.5rem;
+    background: linear-gradient(180deg, transparent, rgba(4, 14, 22, 0.94) 22%);
+  }
+
+  .input-disclaimer {
+    bottom: 0.35rem;
+    font-size: 0.68rem;
+  }
 }
