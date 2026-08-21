@@ -23,7 +23,12 @@ const app = express();
 // Allows the React app to call this API in local and deployed environments.
 // Without this, the browser blocks the request with a CORS error.
 //
-app.use(cors({ origin: env.frontendUrl }));
+const allowedOrigins = [
+  env.frontendUrl,
+  'https://ai-chatbot-web.vercel.app',
+];
+
+app.use(cors({ origin: allowedOrigins }));
 
 // ── Body Parsing ──────────────────────────────────────────────────
 // Parses JSON request bodies and puts them on req.body.
