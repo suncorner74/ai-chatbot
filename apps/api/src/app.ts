@@ -3,6 +3,7 @@ import express from 'express';
 import { errorHandler } from './middleware/error-handler';
 import chatRoutes from './modules/chat/chat.routes';
 import { env } from './config/env';
+import conversationRoutes from './modules/conversations/conversation.routes';
 
 /**
  * app.ts — Express application configuration.
@@ -37,6 +38,7 @@ app.use(express.json());
 
 // ── Routes ────────────────────────────────────────────────────────
 app.use('/api/chat', chatRoutes);
+app.use('/api/conversations', conversationRoutes);
 
 // Health check endpoint — useful for deployment monitoring
 // GET http://localhost:5000/health

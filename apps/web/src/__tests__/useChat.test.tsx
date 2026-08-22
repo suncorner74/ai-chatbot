@@ -1,4 +1,4 @@
-import { act, renderHook } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { useChat } from '../hooks/useChat';
 import * as chatService from '../services/chatService';
 
@@ -12,11 +12,38 @@ import * as chatService from '../services/chatService';
  */
 
 // Mock the chatService so we don't make real network calls in tests
-vi.mock('../services/chatService');
+vi.mock('../services/chatService', () => ({
+  createConversation: vi.fn(),
+  deleteConversation: vi.fn(),
+  getConversation: vi.fn(),
+  getConversations: vi.fn(),
+  sendMessage: vi.fn(),
+}));
 
 describe('useChat hook', () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    vi.mocked(chatService.getConversations).mockResolvedValue([
+      {
+        id: 'conversation-1',
+        title: 'New chat',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      },
+    ]);
+    vi.mocked(chatService.createConversation).mockResolvedValue({
+      id: 'conversation-1',
+      title: 'New chat',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    });
+    vi.mocked(chatService.getConversation).mockResolvedValue({
+      id: 'conversation-1',
+      title: 'New chat',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      messages: [],
+    });
   });
 
   it('starts with default state', () => {
@@ -40,9 +67,17 @@ describe('useChat hook', () => {
 
   it('handles a successful chat flow', async () => {
     // 1. Mock the API success response
-    vi.mocked(chatService.sendMessage).mockResolvedValue('AI reply');
+    vi.mocked(chatService.sendMessage).mockResolvedValue({
+      message: 'AI reply',
+      conversationId: 'conversation-1',
+    });
 
     const { result } = renderHook(() => useChat());
+
+    await waitFor(() => {
+      expect(result.current.conversations).toHaveLength(1);
+      expect(result.current.activeConversationId).toBe('conversation-1');
+    });
 
     // 2. User types a message
     act(() => {
@@ -54,8 +89,10 @@ describe('useChat hook', () => {
       await result.current.handleSend();
     });
 
+    await waitFor(() => expect(result.current.messages).toHaveLength(2));
+
     // 4. Verify state after send
-    expect(chatService.sendMessage).toHaveBeenCalledWith('Hi AI');
+    expect(chatService.sendMessage).toHaveBeenCalledWith('Hi AI', 'conversation-1');
     expect(result.current.input).toBe(''); // Input cleared
     expect(result.current.loading).toBe(false); // Loading stopped
     expect(result.current.error).toBeNull(); // No error
@@ -80,6 +117,11 @@ describe('useChat hook', () => {
 
     const { result } = renderHook(() => useChat());
 
+    await waitFor(() => {
+      expect(result.current.conversations).toHaveLength(1);
+      expect(result.current.activeConversationId).toBe('conversation-1');
+    });
+
     act(() => {
       result.current.setInput('Hi AI');
     });
@@ -87,6 +129,8 @@ describe('useChat hook', () => {
     await act(async () => {
       await result.current.handleSend();
     });
+
+    await waitFor(() => expect(result.current.messages).toHaveLength(1));
 
     // Verify error state
     expect(result.current.error).toBe('API failed');

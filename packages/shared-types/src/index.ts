@@ -36,6 +36,7 @@ export interface ChatMessage {
  */
 export interface ChatRequest {
   message: string;
+  conversationId?: string;
 }
 
 /**
@@ -43,6 +44,22 @@ export interface ChatRequest {
  */
 export interface ChatResponse {
   message: string;
+  conversationId: string;
+}
+
+export interface ConversationSummary {
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ConversationMessage extends ChatMessage {
+  createdAt: string;
+}
+
+export interface ConversationDetails extends ConversationSummary {
+  messages: ConversationMessage[];
 }
 
 /**

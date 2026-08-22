@@ -1,6 +1,11 @@
-import { useCallback, useState } from 'react';
-import { sendMessage } from '../services/chatService';
-import { ChatMessage } from '../types/chat';
+import { useCallback, useEffect, useState } from 'react';
+import {
+  createConversation,
+  getConversation,
+  getConversations,
+  sendMessage,
+} from '../services/chatService';
+import { ChatMessage, ConversationSummary } from '../types/chat';
 
 /**
  * Generates a simple unique ID for each message.
@@ -27,9 +32,7 @@ export interface UseChatReturn {
   selectConversation: (conversationId: string) => void;
 }
 
-export interface ChatConversation {
-  id: string;
-  title: string;
+export interface ChatConversation extends ConversationSummary {
   messages: ChatMessage[];
 }
 
@@ -70,34 +73,67 @@ export interface ChatConversation {
  *   → Cleared before each new request
  */
 export function useChat(): UseChatReturn {
-  const [conversations, setConversations] = useState<ChatConversation[]>(() => {
-    const id = generateId();
-    return [{ id, title: 'New chat', messages: [] }];
-  });
-  const [activeConversationId, setActiveConversationId] = useState(
-    () => conversations[0].id
-  );
+  const [conversations, setConversations] = useState<ChatConversation[]>([]);
+  const [activeConversationId, setActiveConversationId] = useState('');
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const messages =
-    conversations.find(({ id }) => id === activeConversationId)?.messages ?? [];
+  const messages = conversations.find(({ id }) => id === activeConversationId)?.messages ?? [];
 
-  const newChat = useCallback(() => {
-    const id = generateId();
-    setConversations((previous) => [
-      ...previous,
-      { id, title: 'New chat', messages: [] },
-    ]);
-    setActiveConversationId(id);
-    setInput('');
-    setError(null);
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadConversations = async () => {
+      try {
+        const summaries = await getConversations();
+        const initialConversation = summaries[0] ?? await createConversation();
+        const details = await getConversation(initialConversation.id);
+        if (cancelled) return;
+
+        setConversations(summaries.map((summary) => (
+          summary.id === details.id ? details : { ...summary, messages: [] }
+        )));
+        setActiveConversationId(details.id);
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Unable to load conversations.');
+        }
+      }
+    };
+
+    void loadConversations();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const selectConversation = useCallback((conversationId: string) => {
-    setActiveConversationId(conversationId);
-    setInput('');
-    setError(null);
+  const newChat = useCallback(async () => {
+    try {
+      const conversation = await createConversation();
+      setConversations((previous) => [
+        { ...conversation, messages: [] },
+        ...previous,
+      ]);
+      setActiveConversationId(conversation.id);
+      setInput('');
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to create a conversation.');
+    }
+  }, []);
+
+  const selectConversation = useCallback(async (conversationId: string) => {
+    try {
+      const conversation = await getConversation(conversationId);
+      setConversations((previous) => previous.map((item) => (
+        item.id === conversation.id ? conversation : item
+      )));
+      setActiveConversationId(conversation.id);
+      setInput('');
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to load the conversation.');
+    }
   }, []);
 
   /**
@@ -113,6 +149,8 @@ export function useChat(): UseChatReturn {
 
     // 1. Add the user's message to the conversation immediately
     //    (optimistic UI — show the message before the API responds)
+    if (!activeConversationId) return;
+
     const userMessage: ChatMessage = {
       id: generateId(),
       role: 'user',
@@ -136,18 +174,25 @@ export function useChat(): UseChatReturn {
 
     try {
       // 2. Send to the backend and wait for the AI's response
-      const responseText = await sendMessage(trimmed);
+      const response = await sendMessage(trimmed, activeConversationId);
 
       // 3. Add the AI's response to the conversation
       const assistantMessage: ChatMessage = {
         id: generateId(),
         role: 'assistant',
-        content: responseText,
+        content: response.message,
       };
 
       setConversations((previous) => previous.map((conversation) => (
         conversation.id === activeConversationId
-          ? { ...conversation, messages: [...conversation.messages, assistantMessage] }
+          ? {
+              ...conversation,
+              id: response.conversationId,
+              title: conversation.messages.length === 0
+                ? trimmed.slice(0, 32) || 'New chat'
+                : conversation.title,
+              messages: [...conversation.messages, assistantMessage],
+            }
           : conversation
       )));
     } catch (err) {

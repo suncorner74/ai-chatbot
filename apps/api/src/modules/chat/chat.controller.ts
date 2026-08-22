@@ -34,7 +34,7 @@ export class ChatController {
     next: NextFunction
   ): Promise<void> {
     try {
-      const { message } = req.body;
+      const { message, conversationId } = req.body;
 
       // ── Validation ─────────────────────────────────────────────
       if (message === undefined || message === null) {
@@ -76,12 +76,22 @@ export class ChatController {
         });
         return;
       }
+
+      if (conversationId !== undefined && typeof conversationId !== 'string') {
+        res.status(400).json({
+          error: {
+            code: 'INVALID_REQUEST',
+            message: 'Conversation ID must be a string.',
+          },
+        });
+        return;
+      }
       // ── End Validation ──────────────────────────────────────────
 
       // Delegate to the service with clean, validated data
-      const response = await this.chatService.chat(message.trim());
+      const response = await this.chatService.chat(message.trim(), conversationId);
 
-      res.status(200).json({ message: response });
+      res.status(200).json(response);
     } catch (error) {
       // Pass any unexpected errors to the global error handler (error-handler.ts)
       next(error);

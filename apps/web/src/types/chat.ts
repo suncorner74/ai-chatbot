@@ -37,6 +37,17 @@ export interface ChatMessage {
   content: string;
 }
 
+export interface ConversationSummary {
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ConversationDetails extends ConversationSummary {
+  messages: ChatMessage[];
+}
+
 /**
  * The safe error shape returned by the backend.
  * Never contains stack traces or internal details.

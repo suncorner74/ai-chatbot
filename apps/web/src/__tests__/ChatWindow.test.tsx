@@ -11,11 +11,38 @@ import * as chatService from '../services/chatService';
  */
 
 // Mock the network layer
-vi.mock('../services/chatService');
+vi.mock('../services/chatService', () => ({
+  createConversation: vi.fn(),
+  deleteConversation: vi.fn(),
+  getConversation: vi.fn(),
+  getConversations: vi.fn(),
+  sendMessage: vi.fn(),
+}));
 
 describe('ChatWindow integration', () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    vi.mocked(chatService.getConversations).mockResolvedValue([
+      {
+        id: 'conversation-1',
+        title: 'New chat',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      },
+    ]);
+    vi.mocked(chatService.createConversation).mockResolvedValue({
+      id: 'conversation-1',
+      title: 'New chat',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    });
+    vi.mocked(chatService.getConversation).mockResolvedValue({
+      id: 'conversation-1',
+      title: 'New chat',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      messages: [],
+    });
   });
 
   it('renders the empty state initially', () => {
@@ -25,7 +52,7 @@ describe('ChatWindow integration', () => {
       screen.getByText('Send a message to start the conversation.')
     ).toBeInTheDocument();
     
-    const input = screen.getByPlaceholderText(/Type your message/i);
+    const input = screen.getByPlaceholderText(/Ask anything/i);
     expect(input).toBeInTheDocument();
     
     const button = screen.getByRole('button', { name: /send/i });
@@ -33,11 +60,18 @@ describe('ChatWindow integration', () => {
   });
 
   it('allows user to send a message and see the AI response', async () => {
-    vi.mocked(chatService.sendMessage).mockResolvedValue('I am an AI.');
+    vi.mocked(chatService.sendMessage).mockResolvedValue({
+      message: 'I am an AI.',
+      conversationId: 'conversation-1',
+    });
 
     render(<ChatWindow />);
 
-    const input = screen.getByPlaceholderText(/Type your message/i);
+    const input = screen.getByPlaceholderText(/Ask anything/i);
+    await waitFor(() => {
+      expect(chatService.getConversation).toHaveBeenCalledWith('conversation-1');
+      expect(screen.getByRole('button', { name: /send/i })).toBeDisabled();
+    });
     const button = screen.getByRole('button', { name: /send/i });
 
     // 1. User types
@@ -54,7 +88,7 @@ describe('ChatWindow integration', () => {
     expect(input).toHaveValue('');
 
     // 5. Typing indicator appears
-    expect(screen.getByText('Thinking...')).toBeInTheDocument();
+    expect(screen.getByText('●')).toBeInTheDocument();
 
     // 6. Wait for the API to resolve and the AI message to appear
     await waitFor(() => {
@@ -62,6 +96,6 @@ describe('ChatWindow integration', () => {
     });
 
     // 7. Typing indicator disappears
-    expect(screen.queryByText('Thinking...')).not.toBeInTheDocument();
+    expect(screen.queryByText('●')).not.toBeInTheDocument();
   });
 });

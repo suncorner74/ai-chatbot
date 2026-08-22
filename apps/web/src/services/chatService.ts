@@ -1,4 +1,8 @@
-import { ApiError } from '../types/chat';
+import {
+  ApiError,
+  ConversationDetails,
+  ConversationSummary,
+} from '../types/chat';
 
 /**
  * chatService.ts — all HTTP communication with the backend lives here.
@@ -40,6 +44,7 @@ import { ApiError } from '../types/chat';
 
 interface SendMessageSuccessResponse {
   message: string;
+  conversationId: string;
 }
 
 interface SendMessageErrorResponse {
@@ -51,24 +56,50 @@ interface SendMessageErrorResponse {
  *
  * @throws {Error} with the backend's error message if the request fails
  */
-export async function sendMessage(message: string): Promise<string> {
-  const API_URL = import.meta.env.VITE_API_URL;
-  const response = await fetch(`${API_URL}/api/chat`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ message }),
-  });
+const API_URL = import.meta.env.VITE_API_URL;
+
+async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const response = await fetch(`${API_URL}${path}`, options);
 
   if (!response.ok) {
-    // Parse the error response from the backend
     const errorData = (await response.json()) as SendMessageErrorResponse;
     throw new Error(
       errorData.error?.message ?? 'Something went wrong. Please try again.'
     );
   }
 
-  const data = (await response.json()) as SendMessageSuccessResponse;
-  return data.message;
+  return response.status === 204 ? (undefined as T) : (await response.json() as T);
+}
+
+export async function getConversations(): Promise<ConversationSummary[]> {
+  return request<ConversationSummary[]>('/api/conversations');
+}
+
+export async function createConversation(): Promise<ConversationSummary> {
+  return request<ConversationSummary>('/api/conversations', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({}),
+  });
+}
+
+export async function getConversation(conversationId: string): Promise<ConversationDetails> {
+  return request<ConversationDetails>(`/api/conversations/${conversationId}/messages`);
+}
+
+export async function deleteConversation(conversationId: string): Promise<void> {
+  await request<void>(`/api/conversations/${conversationId}`, { method: 'DELETE' });
+}
+
+export async function sendMessage(
+  message: string,
+  conversationId?: string
+): Promise<SendMessageSuccessResponse> {
+  return request<SendMessageSuccessResponse>('/api/chat', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ message, conversationId }),
+  });
 }

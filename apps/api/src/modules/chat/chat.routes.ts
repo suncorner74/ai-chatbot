@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { OpenRouterProvider } from '../../ai/llm/providers/openrouter.provider';
 import { ChatController } from './chat.controller';
 import { ChatService } from './chat.service';
+import { ConversationRepository } from '../conversations/conversation.repository';
+import { prisma } from '../../db/prisma';
 
 const router = Router();
 
@@ -13,7 +15,7 @@ const router = Router();
  * to generate a response.
  */
 const llmProvider = new OpenRouterProvider();
-const chatService = new ChatService(llmProvider);
+const chatService = new ChatService(llmProvider, new ConversationRepository(prisma));
 const chatController = new ChatController(chatService);
 
 /**

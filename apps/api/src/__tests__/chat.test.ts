@@ -25,11 +25,33 @@
 // ── Mocks (hoisted by Jest before imports) ────────────────────────
 
 const mockGenerateResponse = jest.fn();
+const mockConversation = {
+  id: 'conversation-1',
+  title: 'New chat',
+  createdAt: new Date('2026-01-01T00:00:00.000Z'),
+  updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+  messages: [],
+};
 
-jest.mock('../ai/llm/providers/openai.provider', () => ({
-  OpenAIProvider: jest.fn().mockImplementation(() => ({
+jest.mock('../ai/llm/providers/openrouter.provider', () => ({
+  OpenRouterProvider: jest.fn().mockImplementation(() => ({
     generateResponse: mockGenerateResponse,
   })),
+}));
+
+jest.mock('../modules/conversations/conversation.repository', () => ({
+  ConversationRepository: jest.fn().mockImplementation(() => ({
+    create: jest.fn().mockResolvedValue(mockConversation),
+    list: jest.fn().mockResolvedValue([mockConversation]),
+    getById: jest.fn().mockResolvedValue(mockConversation),
+    addMessage: jest.fn().mockResolvedValue([]),
+    renameIfNew: jest.fn().mockResolvedValue({ count: 1 }),
+    delete: jest.fn().mockResolvedValue(true),
+  })),
+}));
+
+jest.mock('../db/prisma', () => ({
+  prisma: {},
 }));
 
 jest.mock('../config/env', () => ({
@@ -38,6 +60,8 @@ jest.mock('../config/env', () => ({
     llmApiKey: 'test-api-key',
     llmModel: 'gpt-4o-mini',
     nodeEnv: 'test',
+    frontendUrl: 'http://localhost:5173',
+    databaseUrl: 'postgresql://test:test@localhost:5432/test',
   },
 }));
 
@@ -152,5 +176,32 @@ describe('GET /health', () => {
     const res = await request(app).get('/health');
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('ok');
+  });
+});
+
+describe('Conversation history API', () => {
+  it('creates and lists conversations', async () => {
+    const createResponse = await request(app)
+      .post('/api/conversations')
+      .send({ title: 'Project notes' });
+    const listResponse = await request(app).get('/api/conversations');
+
+    expect(createResponse.status).toBe(201);
+    expect(createResponse.body).toMatchObject({ id: 'conversation-1', title: 'New chat' });
+    expect(listResponse.status).toBe(200);
+    expect(listResponse.body).toHaveLength(1);
+  });
+
+  it('returns conversation messages', async () => {
+    const response = await request(app).get('/api/conversations/conversation-1/messages');
+
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({ id: 'conversation-1', messages: [] });
+  });
+
+  it('deletes a conversation', async () => {
+    const response = await request(app).delete('/api/conversations/conversation-1');
+
+    expect(response.status).toBe(204);
   });
 });

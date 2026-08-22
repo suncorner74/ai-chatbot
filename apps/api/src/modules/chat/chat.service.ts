@@ -3,6 +3,7 @@ import {
   LLMMessage,
 } from '../../ai/llm/interfaces/llm-provider.interface';
 import { CHATBOT_SYSTEM_PROMPT } from '../../ai/prompts/chatbot.system';
+import { ConversationRepository } from '../conversations/conversation.repository';
 
 /**
  * ChatService — the brain of the chat feature.
@@ -48,9 +49,24 @@ import { CHATBOT_SYSTEM_PROMPT } from '../../ai/prompts/chatbot.system';
  * ─────────────────────────────────────────────────────────────────
  */
 export class ChatService {
-  constructor(private readonly llmProvider: LLMProvider) {}
+  constructor(
+    private readonly llmProvider: LLMProvider,
+    private readonly conversationRepository: ConversationRepository
+  ) {}
 
-  async chat(userMessage: string): Promise<string> {
+  async chat(userMessage: string, conversationId?: string): Promise<{ message: string; conversationId: string }> {
+    const conversation = conversationId
+      ? await this.conversationRepository.getById(conversationId)
+      : await this.conversationRepository
+          .create()
+          .then(({ id }) => this.conversationRepository.getById(id));
+
+    if (!conversation) {
+      throw new Error('Conversation not found.');
+    }
+
+    await this.conversationRepository.addMessage(conversation.id, 'user', userMessage);
+    await this.conversationRepository.renameIfNew(conversation.id, userMessage);
     /**
      * Build the messages array the LLM will receive.
      *
@@ -65,6 +81,10 @@ export class ChatService {
         role: 'system',
         content: CHATBOT_SYSTEM_PROMPT,
       },
+      ...conversation.messages.map((message) => ({
+        role: message.role,
+        content: message.content,
+      })),
       {
         role: 'user',
         content: userMessage,
@@ -72,6 +92,9 @@ export class ChatService {
     ];
 
     // Delegate to whichever LLM provider was injected
-    return this.llmProvider.generateResponse(messages);
+    const response = await this.llmProvider.generateResponse(messages);
+    await this.conversationRepository.addMessage(conversation.id, 'assistant', response);
+
+    return { message: response, conversationId: conversation.id };
   }
 }
