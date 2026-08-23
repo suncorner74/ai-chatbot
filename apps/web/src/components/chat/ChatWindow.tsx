@@ -3,39 +3,23 @@ import ChatInput from './ChatInput';
 import './ChatWindow.css';
 import MessageList from './MessageList';
 
-/**
- * ChatWindow — the smart container for the chat feature.
- *
- * This component acts as the "glue" between the state (useChat)
- * and the presentation components (MessageList, ChatInput).
- *
- * Because we extracted all the complex state logic into useChat(),
- * this component is incredibly simple. It just passes props down.
- */
-interface ChatWindowProps {
-  chat?: UseChatReturn;
-}
+interface ChatWindowProps { chat?: UseChatReturn; }
 
 export default function ChatWindow({ chat }: ChatWindowProps) {
   const localChat = useChat();
-  const { messages, input, loading, error, setInput, handleSend } = chat ?? localChat;
+  const activeChat = chat ?? localChat;
+  const { messages, input, phase, error, setInput, handleSend, stopGeneration, retry, regenerate } = activeChat;
 
   return (
     <div className="chat-window">
       {error && (
         <div className="chat-error" role="alert">
-          {error}
+          <span>{error}</span>
+          <button type="button" onClick={() => void retry()}>Retry</button>
         </div>
       )}
-      
-      <MessageList messages={messages} loading={loading} />
-      
-      <ChatInput
-        input={input}
-        setInput={setInput}
-        loading={loading}
-        onSend={handleSend}
-      />
+      <MessageList messages={messages} phase={phase} onRetry={() => void retry()} onRegenerate={() => void regenerate()} />
+      <ChatInput input={input} setInput={setInput} phase={phase} onSend={() => void handleSend()} onStop={stopGeneration} />
     </div>
   );
 }
