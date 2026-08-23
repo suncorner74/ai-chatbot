@@ -4,9 +4,8 @@ module.exports = {
   testEnvironment: 'node',
   roots: ['<rootDir>/src'],
   testMatch: ['**/__tests__/**/*.test.ts'],
-  // Tell ts-jest how to resolve the workspace package during tests
+  setupFiles: ['<rootDir>/src/__tests__/setup.ts'],
   moduleNameMapper: {
-    '^@ai-chatbot/shared-types$':
-      '<rootDir>/../../packages/shared-types/src/index.ts',
+    '^@ai-chatbot/shared-types$': '<rootDir>/../../packages/shared-types/src/index.ts',
   },
 };
