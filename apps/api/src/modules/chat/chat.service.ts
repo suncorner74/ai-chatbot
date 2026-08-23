@@ -5,6 +5,8 @@ import {
 import { CHATBOT_SYSTEM_PROMPT } from '../../ai/prompts/chatbot.system';
 import { ChatRepository } from './chat.repository';
 
+export type ChatGenerationMode = 'new' | 'retry' | 'regenerate';
+
 export interface ChatStreamResult {
   conversationId: string;
   tokens: AsyncIterable<string>;
@@ -32,10 +34,14 @@ export class ChatService {
     conversationId: string | undefined,
     userMessage: string,
     signal?: AbortSignal,
+    mode: ChatGenerationMode = 'new',
   ): Promise<ChatStreamResult> {
     const conversation = await this.resolveConversation(userId, conversationId, userMessage);
-    const messages = await this.buildMessages(conversation.id, userMessage);
-    await this.repository.createUserMessage(conversation.id, userMessage);
+    const messages = await this.buildMessages(conversation.id, userMessage, mode);
+
+    if (mode === 'new') {
+      await this.repository.createUserMessage(conversation.id, userMessage);
+    }
 
     const llmStream = this.llmProvider.streamResponse(messages, { signal });
     const repository = this.repository;
@@ -55,9 +61,9 @@ export class ChatService {
         }
 
         if (!response) throw new Error('LLM_EMPTY_RESPONSE');
-        await repository.createAssistantMessage(conversationIdValue, response);
+        await repository.createAssistantMessageIfMissing(conversationIdValue, response);
       } finally {
-        // The assistant message is intentionally persisted only after the stream completes.
+        // Assistant content is persisted only after a successful, complete stream.
       }
     }
 
@@ -73,15 +79,26 @@ export class ChatService {
     return this.repository.createConversation(userId, userMessage);
   }
 
-  private async buildMessages(conversationId: string, userMessage: string): Promise<LLMMessage[]> {
-    const history = await this.repository.getHistory(conversationId);
+  private async buildMessages(
+    conversationId: string,
+    userMessage: string,
+    mode: ChatGenerationMode = 'new',
+  ): Promise<LLMMessage[]> {
+    let history = await this.repository.getHistory(conversationId);
+
+    if (mode === 'regenerate') {
+      const lastAssistantIndex = [...history].map((message) => message.role).lastIndexOf('assistant');
+      if (lastAssistantIndex >= 0) history = history.slice(0, lastAssistantIndex);
+    }
+
+    const shouldAppendCurrentUserMessage = mode === 'new';
     return [
       { role: 'system', content: CHATBOT_SYSTEM_PROMPT },
       ...history.map((message) => ({
         role: message.role as LLMMessage['role'],
         content: message.content,
       })),
-      { role: 'user', content: userMessage },
+      ...(shouldAppendCurrentUserMessage ? [{ role: 'user' as const, content: userMessage }] : []),
     ];
   }
 }
