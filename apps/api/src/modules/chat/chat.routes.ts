@@ -6,7 +6,6 @@ import { createRateLimiter } from '../../middleware/rate-limit';
 import { enforceDailyChatLimit } from '../../middleware/usage-limit';
 import { ChatController } from './chat.controller';
 import { ChatService } from './chat.service';
-import { ChatGenerationMode } from './chat.service';
 
 const router = Router();
 const providers = {
