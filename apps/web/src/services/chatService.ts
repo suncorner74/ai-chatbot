@@ -39,29 +39,19 @@ async function request<T>(path: string): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-export async function getConversations() {
-  return request<ConversationsResponse>('/api/conversations');
-}
+export async function getConversations() { return request<ConversationsResponse>('/api/conversations'); }
 
 export async function getConversationMessages(conversationId: string) {
   const result = await request<MessagesResponse>(`/api/conversations/${conversationId}/messages`);
   return { ...result, messages: [...result.messages].reverse() };
 }
 
-export async function streamMessage(
-  message: string,
-  conversationId: string | undefined,
-  onEvent: (event: ChatStreamEvent) => void,
-  signal: AbortSignal,
-): Promise<void> {
+export async function streamMessage(message: string, conversationId: string | undefined, onEvent: (event: ChatStreamEvent) => void, signal: AbortSignal): Promise<void> {
   let response: Response;
   try {
     response = await fetch(`${API_URL}/api/chat`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
-      body: JSON.stringify({ message, ...(conversationId ? { conversationId } : {}) }),
-      signal,
+      method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
+      body: JSON.stringify({ message, ...(conversationId ? { conversationId } : {}) }), signal,
     });
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') throw error;
@@ -77,7 +67,6 @@ export async function streamMessage(
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
-
   const consume = (raw: string) => {
     buffer += raw;
     const events = buffer.split('\n\n');
@@ -99,6 +88,7 @@ export async function streamMessage(
       consume(decoder.decode(value, { stream: true }));
     }
     consume(decoder.decode());
+    if (signal.aborted) throw new DOMException('Generation aborted', 'AbortError');
   } finally {
     reader.releaseLock();
   }
