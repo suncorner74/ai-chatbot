@@ -16,5 +16,7 @@ app.listen(env.port, () => {
   console.log(`\n🚀 API server running at http://localhost:${env.port}`);
   console.log(`   Environment : ${env.nodeEnv}`);
   console.log(`   LLM Model   : ${env.llmModel}`);
+  console.log(`   Database    : Connected to ${env.databaseUrl.split('@')[1]?.split('/')[0] || 'PostgreSQL'}`);
   console.log(`   Health check: http://localhost:${env.port}/health\n`);
 });
+
