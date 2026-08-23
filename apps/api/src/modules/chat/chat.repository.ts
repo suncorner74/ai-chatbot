@@ -37,4 +37,13 @@ export class ChatRepository {
       select: { id: true },
     });
   }
+
+  async createAssistantMessageIfMissing(conversationId: string, content: string) {
+    const existing = await prisma.message.findFirst({
+      where: { conversationId, role: 'assistant', content },
+      select: { id: true },
+    });
+    if (existing) return existing;
+    return this.createAssistantMessage(conversationId, content);
+  }
 }
