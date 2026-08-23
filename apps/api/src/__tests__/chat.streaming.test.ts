@@ -8,6 +8,7 @@ describe('ChatService streaming', () => {
     getHistory: jest.fn(),
     createUserMessage: jest.fn(),
     createAssistantMessage: jest.fn(),
+    createAssistantMessageIfMissing: jest.fn(),
   };
 
   const provider: LLMProvider = {
@@ -21,6 +22,7 @@ describe('ChatService streaming', () => {
     repository.getHistory.mockResolvedValue([]);
     repository.createUserMessage.mockResolvedValue({ id: 'user-message-1' });
     repository.createAssistantMessage.mockResolvedValue({ id: 'assistant-message-1' });
+    repository.createAssistantMessageIfMissing.mockResolvedValue({ id: 'assistant-message-1' });
   });
 
   it('validates conversation ownership before persisting or generating', async () => {
@@ -35,7 +37,7 @@ describe('ChatService streaming', () => {
   it('persists the user message before starting the LLM stream and persists the assistant once complete', async () => {
     const calls: string[] = [];
     repository.createUserMessage.mockImplementation(async () => { calls.push('user'); return { id: 'u1' }; });
-    repository.createAssistantMessage.mockImplementation(async () => { calls.push('assistant'); return { id: 'a1' }; });
+    repository.createAssistantMessageIfMissing.mockImplementation(async () => { calls.push('assistant'); return { id: 'a1' }; });
     provider.streamResponse = jest.fn((_messages: LLMMessage[]) => (async function* () {
       calls.push('token-1');
       yield 'Hello';
@@ -50,7 +52,7 @@ describe('ChatService streaming', () => {
 
     expect(tokens).toEqual(['Hello', ' world']);
     expect(calls).toEqual(['user', 'token-1', 'token-2', 'assistant']);
-    expect(repository.createAssistantMessage).toHaveBeenCalledWith('conversation-1', 'Hello world');
+    expect(repository.createAssistantMessageIfMissing).toHaveBeenCalledWith('conversation-1', 'Hello world');
   });
 
   it('does not persist an assistant message when generation is aborted', async () => {
@@ -68,6 +70,20 @@ describe('ChatService streaming', () => {
 
     await expect(consume()).rejects.toThrow('Generation aborted');
     expect(repository.createUserMessage).toHaveBeenCalledTimes(1);
-    expect(repository.createAssistantMessage).not.toHaveBeenCalled();
+    expect(repository.createAssistantMessageIfMissing).not.toHaveBeenCalled();
+  });
+
+  it('does not add a duplicate user message when retrying the latest prompt', async () => {
+    repository.getHistory.mockResolvedValueOnce([{ role: 'user', content: 'hello' }]);
+    provider.streamResponse = jest.fn((_messages: LLMMessage[]) => (async function* () { yield 'retry response'; })());
+
+    const service = new ChatService(provider, repository as never);
+    const result = await service.streamChat('user-1', 'conversation-1', 'hello', undefined, 'retry');
+    const tokens: string[] = [];
+    for await (const token of result.tokens) tokens.push(token);
+
+    expect(tokens).toEqual(['retry response']);
+    expect(repository.createUserMessage).not.toHaveBeenCalled();
+    expect(repository.createAssistantMessageIfMissing).toHaveBeenCalledWith('conversation-1', 'retry response');
   });
 });

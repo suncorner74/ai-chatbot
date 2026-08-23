@@ -37,9 +37,14 @@ export class ChatService {
     mode: ChatGenerationMode = 'new',
   ): Promise<ChatStreamResult> {
     const conversation = await this.resolveConversation(userId, conversationId, userMessage);
-    const messages = await this.buildMessages(conversation.id, userMessage, mode);
+    const history = await this.repository.getHistory(conversation.id);
+    const lastHistoryMessage = history.length > 0 ? history[history.length - 1] : undefined;
+    const effectiveMode = mode === 'new' && lastHistoryMessage?.role === 'user' && lastHistoryMessage.content === userMessage
+      ? 'retry'
+      : mode;
+    const messages = await this.buildMessages(conversation.id, userMessage, effectiveMode);
 
-    if (mode === 'new') {
+    if (effectiveMode === 'new') {
       await this.repository.createUserMessage(conversation.id, userMessage);
     }
 

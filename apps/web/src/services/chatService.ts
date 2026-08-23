@@ -3,6 +3,7 @@ import { ApiError } from '../types/chat';
 export interface ConversationSummary { id: string; title: string | null; createdAt: string; updatedAt: string }
 interface ConversationsResponse { conversations: ConversationSummary[] }
 interface MessagesResponse { messages: Array<{ id: string; role: 'user' | 'assistant'; content: string }> }
+export type ChatGenerationMode = 'new' | 'retry' | 'regenerate';
 
 export type ChatStreamEvent =
   | { event: 'token'; data: { token: string } }
@@ -46,12 +47,18 @@ export async function getConversationMessages(conversationId: string) {
   return { ...result, messages: [...result.messages].reverse() };
 }
 
-export async function streamMessage(message: string, conversationId: string | undefined, onEvent: (event: ChatStreamEvent) => void, signal: AbortSignal): Promise<void> {
+export async function streamMessage(
+  message: string,
+  conversationId: string | undefined,
+  onEvent: (event: ChatStreamEvent) => void,
+  signal: AbortSignal,
+  mode: ChatGenerationMode = 'new',
+): Promise<void> {
   let response: Response;
   try {
     response = await fetch(`${API_URL}/api/chat`, {
       method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
-      body: JSON.stringify({ message, ...(conversationId ? { conversationId } : {}) }), signal,
+      body: JSON.stringify({ message, ...(conversationId ? { conversationId } : {}), mode }), signal,
     });
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') throw error;
@@ -90,6 +97,7 @@ export async function streamMessage(message: string, conversationId: string | un
     consume(decoder.decode());
     if (signal.aborted) throw new DOMException('Generation aborted', 'AbortError');
   } finally {
+    try { await reader.cancel(); } catch { /* stream already closed */ }
     reader.releaseLock();
   }
 }

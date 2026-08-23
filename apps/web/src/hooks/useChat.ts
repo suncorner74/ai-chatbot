@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ChatRequestError, getConversationMessages, getConversations, streamMessage } from '../services/chatService';
+import { ChatRequestError, getConversationMessages, getConversations, streamMessage, ChatGenerationMode } from '../services/chatService';
 import { ChatMessage } from '../types/chat';
 
 function generateId(): string { return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`; }
@@ -72,15 +72,15 @@ export function useChat(userId?: string): UseChatReturn {
     } catch (err) { setError(err instanceof Error ? err.message : 'Unable to load messages.'); setPhase('error'); }
   }, [conversations, userId]);
 
-  const sendPrompt = useCallback(async (prompt: string, conversationId: string, addUserMessage: boolean) => {
+  const sendPrompt = useCallback(async (prompt: string, conversationId: string, mode: ChatGenerationMode) => {
     const assistantId = generateId();
     const controller = new AbortController();
     abortRef.current = controller;
     setError(null); setPhase('sending');
     setConversations((previous) => previous.map((conversation) => {
       if (conversation.id !== conversationId) return conversation;
-      const messagesToUse = addUserMessage ? [...conversation.messages, { id: generateId(), role: 'user' as const, content: prompt }] : conversation.messages;
-      return { ...conversation, title: conversation.messages.length === 0 ? prompt.slice(0, 32) || 'New chat' : conversation.title, messages: [...messagesToUse, { id: assistantId, role: 'assistant' as const, content: '' }] };
+      const messagesToUse = mode === 'new' ? [...conversation.messages, { id: generateId(), role: 'user' as const, content: prompt }] : conversation.messages;
+      return { ...conversation, title: mode === 'new' && conversation.messages.length === 0 ? prompt.slice(0, 32) || 'New chat' : conversation.title, messages: [...messagesToUse, { id: assistantId, role: 'assistant' as const, content: '' }] };
     }));
 
     let completed = false;
@@ -102,15 +102,11 @@ export function useChat(userId?: string): UseChatReturn {
         } else {
           throw new ChatRequestError(500, event.data.code, event.data.message);
         }
-      }, controller.signal);
+      }, controller.signal, mode);
       if (!completed) throw new ChatRequestError(500, 'STREAM_INCOMPLETE', 'The response ended unexpectedly. Please try again.');
     } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') {
-        setPhase('aborted');
-      } else {
-        setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
-        setPhase('error');
-      }
+      if (err instanceof DOMException && err.name === 'AbortError') setPhase('aborted');
+      else { setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.'); setPhase('error'); }
       setConversations((previous) => previous.map((conversation) => conversation.id === conversationId ? { ...conversation, messages: conversation.messages.filter((item) => item.id !== assistantId) } : conversation));
     } finally {
       if (abortRef.current === controller) abortRef.current = null;
@@ -120,8 +116,7 @@ export function useChat(userId?: string): UseChatReturn {
   const handleSend = useCallback(async () => {
     const trimmed = input.trim();
     if (!trimmed || loading || !activeConversationId) return;
-    setInput('');
-    await sendPrompt(trimmed, activeConversationId, true);
+    setInput(''); await sendPrompt(trimmed, activeConversationId, 'new');
   }, [activeConversationId, input, loading, sendPrompt]);
 
   const stopGeneration = useCallback(() => { abortRef.current?.abort(); }, []);
@@ -130,7 +125,7 @@ export function useChat(userId?: string): UseChatReturn {
     if (loading) return;
     const current = conversations.find(({ id }) => id === activeConversationId);
     const lastUser = [...(current?.messages ?? [])].reverse().find((item) => item.role === 'user');
-    if (lastUser) await sendPrompt(lastUser.content, activeConversationId, true);
+    if (lastUser) await sendPrompt(lastUser.content, activeConversationId, 'retry');
   }, [activeConversationId, conversations, loading, sendPrompt]);
 
   const regenerate = useCallback(async () => {
@@ -141,7 +136,7 @@ export function useChat(userId?: string): UseChatReturn {
     if (!lastUser) return;
     if (lastAssistantIndex >= 0) setConversations((previous) => previous.map((conversation) => conversation.id === activeConversationId
       ? { ...conversation, messages: conversation.messages.filter((_, index) => index !== lastAssistantIndex) } : conversation));
-    await sendPrompt(lastUser.content, activeConversationId, false);
+    await sendPrompt(lastUser.content, activeConversationId, 'regenerate');
   }, [activeConversationId, conversations, loading, sendPrompt]);
 
   const reset = useCallback(() => {
