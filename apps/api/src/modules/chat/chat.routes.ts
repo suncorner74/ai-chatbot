@@ -12,7 +12,7 @@ const chatService = new ChatService(llmProvider);
 const chatController = new ChatController(chatService);
 
 router.post('/', requireAuth, createRateLimiter(30, 60, 'chat'), enforceDailyChatLimit, (req, res, next) =>
-  chatController.sendMessage(req, res, next)
+  chatController.streamMessage(req, res, next)
 );
 
 export default router;
