@@ -1,6 +1,6 @@
 import { NextFunction, Response } from 'express';
 import { MAX_MESSAGE_LENGTH } from './chat.types';
-import { ChatService } from './chat.service';
+import { ChatGenerationMode, ChatService } from './chat.service';
 import { encodeSseEvent, writeSseHeaders } from './chat.stream';
 import type { AuthenticatedRequest } from '../auth/auth.types';
 
@@ -37,12 +37,13 @@ export class ChatController {
     res.once('close', abort);
 
     try {
-      const { message, conversationId } = this.validateRequest(req);
+      const { message, conversationId, mode } = this.validateRequest(req);
       const result = await this.chatService.streamChat(
         req.user!.id,
         conversationId,
         message,
         abortController.signal,
+        mode,
       );
 
       writeSseHeaders(res);
@@ -82,12 +83,12 @@ export class ChatController {
     }
   }
 
-  private validateRequest(req: AuthenticatedRequest): { message: string; conversationId?: string } {
+  private validateRequest(req: AuthenticatedRequest): { message: string; conversationId?: string; mode: ChatGenerationMode } {
     if (!req.user) {
       throw new ChatHttpError(401, 'UNAUTHORIZED', 'Authentication required.');
     }
 
-    const { message, conversationId } = req.body ?? {};
+    const { message, conversationId, mode = 'new' } = req.body ?? {};
     if (typeof message !== 'string' || message.trim().length === 0) {
       throw new ChatHttpError(400, 'INVALID_REQUEST', 'Message must be a non-empty string.');
     }
@@ -97,8 +98,14 @@ export class ChatController {
     if (conversationId !== undefined && typeof conversationId !== 'string') {
       throw new ChatHttpError(400, 'INVALID_REQUEST', 'conversationId must be a string.');
     }
+    if (mode !== 'new' && mode !== 'retry' && mode !== 'regenerate') {
+      throw new ChatHttpError(400, 'INVALID_REQUEST', 'Invalid generation mode.');
+    }
+    if (mode !== 'new' && !conversationId) {
+      throw new ChatHttpError(400, 'INVALID_REQUEST', 'conversationId is required for retry or regenerate.');
+    }
 
-    return { message: message.trim(), conversationId };
+    return { message: message.trim(), conversationId, mode };
   }
 
   private respondToKnownError(error: unknown, res: Response): boolean {
