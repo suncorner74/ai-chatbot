@@ -25,7 +25,8 @@ export class GeminiProvider implements LLMProvider {
   }
 
   private async request(operation: string, messages: LLMMessage[], signal?: AbortSignal) {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${this.model}:${operation}?key=${encodeURIComponent(this.apiKey)}`, {
+    const separator = operation.includes('?') ? '&' : '?';
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${this.model}:${operation}${separator}key=${encodeURIComponent(this.apiKey)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(this.payload(messages)),
