@@ -11,7 +11,7 @@ import '@testing-library/jest-dom';
  */
 
 window.HTMLElement.prototype.scrollIntoView = function() {};
-window.HTMLElement.prototype.scrollTo = function(options?: ScrollToOptions | number, y?: number) {
+window.HTMLElement.prototype.scrollTo = function(options?: ScrollToOptions | number) {
   if (typeof options === 'number') {
     this.scrollTop = options;
     return;
