@@ -1,59 +1,14 @@
-generator client {
-  provider = "prisma-client-js"
-}
-
+generator client { provider = "prisma-client-js" }
 datasource db { provider = "postgresql" url = env("DATABASE_URL") }
-
-model User {
-  id String @id @default(cuid())
-  email String @unique
-  passwordHash String
-  name String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  sessions Session[]
-  conversations Conversation[]
-  usage Usage[]
-  documents Document[]
-  knowledgeBases KnowledgeBase[]
-  @@index([email])
-}
+model User { id String @id @default(cuid()) email String @unique passwordHash String name String? createdAt DateTime @default(now()) updatedAt DateTime @updatedAt sessions Session[] conversations Conversation[] usage Usage[] documents Document[] knowledgeBases KnowledgeBase[] ragUsage RagUsage[] @@index([email]) }
 model Session { id String @id @default(cuid()) userId String expiresAt DateTime createdAt DateTime @default(now()) user User @relation(fields:[userId], references:[id], onDelete:Cascade) @@index([userId]) @@index([expiresAt]) }
 model Conversation { id String @id @default(cuid()) userId String title String? createdAt DateTime @default(now()) updatedAt DateTime @updatedAt user User @relation(fields:[userId], references:[id], onDelete:Cascade) messages Message[] @@index([userId]) }
 model Message { id String @id @default(cuid()) conversationId String role String content String createdAt DateTime @default(now()) conversation Conversation @relation(fields:[conversationId], references:[id], onDelete:Cascade) @@index([conversationId]) }
 model Usage { id String @id @default(cuid()) userId String date DateTime requests Int @default(0) inputTokens Int @default(0) outputTokens Int @default(0) user User @relation(fields:[userId], references:[id], onDelete:Cascade) @@unique([userId,date]) @@index([userId,date]) }
+model RagUsage { id String @id @default(cuid()) userId String createdAt DateTime @default(now()) retrievalCount Int @default(0) retrievedChunkCount Int @default(0) retrievalLatencyMs Int @default(0) rerankingLatencyMs Int @default(0) llmLatencyMs Int @default(0) estimatedCostUsd Float @default(0) grounded Boolean @default(false) citationCount Int @default(0) user User @relation(fields:[userId], references:[id], onDelete:Cascade) @@index([userId,createdAt]) }
 model KnowledgeBase { id String @id @default(cuid()) userId String name String description String? createdAt DateTime @default(now()) updatedAt DateTime @updatedAt user User @relation(fields:[userId], references:[id], onDelete:Cascade) documents KnowledgeBaseDocument[] @@unique([userId,name]) @@index([userId]) }
 model KnowledgeBaseDocument { knowledgeBaseId String documentId String knowledgeBase KnowledgeBase @relation(fields:[knowledgeBaseId], references:[id], onDelete:Cascade) document Document @relation(fields:[documentId], references:[id], onDelete:Cascade) @@id([knowledgeBaseId,documentId]) @@index([documentId]) }
-model Document {
-  id String @id @default(cuid())
-  userId String
-  organizationId String?
-  name String
-  mimeType String
-  sizeBytes Int
-  contentHash String
-  fileHash String
-  documentVersion Int @default(1)
-  status DocumentStatus @default(UPLOADING)
-  processingError String?
-  sourceContent String?
-  metadata String?
-  chunkCount Int @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  processedAt DateTime?
-  user User @relation(fields:[userId], references:[id], onDelete:Cascade)
-  chunks DocumentChunk[]
-  versions DocumentVersion[]
-  knowledgeBases KnowledgeBaseDocument[]
-  @@unique([userId,fileHash])
-  @@index([userId])
-  @@index([organizationId])
-  @@index([status])
-  @@index([contentHash])
-  @@index([fileHash])
-  @@index([createdAt])
-}
+model Document { id String @id @default(cuid()) userId String organizationId String? name String mimeType String sizeBytes Int contentHash String fileHash String documentVersion Int @default(1) status DocumentStatus @default(UPLOADING) processingError String? sourceContent String? metadata String? chunkCount Int @default(0) createdAt DateTime @default(now()) updatedAt DateTime @updatedAt processedAt DateTime? user User @relation(fields:[userId], references:[id], onDelete:Cascade) chunks DocumentChunk[] versions DocumentVersion[] knowledgeBases KnowledgeBaseDocument[] @@unique([userId,fileHash]) @@index([userId]) @@index([organizationId]) @@index([status]) @@index([contentHash]) @@index([fileHash]) @@index([createdAt]) }
 model DocumentVersion { id String @id @default(cuid()) documentId String version Int contentHash String fileHash String embeddingVersion String createdAt DateTime @default(now()) document Document @relation(fields:[documentId], references:[id], onDelete:Cascade) @@unique([documentId,version]) @@index([contentHash]) }
 model DocumentChunk { id String @id @default(cuid()) documentId String parentId String? chunkIndex Int page Int? section String? heading String? content String context String? contentHash String embedding String? embeddingVersion String? metadata String? createdAt DateTime @default(now()) updatedAt DateTime @updatedAt document Document @relation(fields:[documentId], references:[id], onDelete:Cascade) @@unique([documentId,chunkIndex]) @@index([documentId]) @@index([parentId]) @@index([contentHash]) }
 enum DocumentStatus { UPLOADING PROCESSING READY FAILED }
