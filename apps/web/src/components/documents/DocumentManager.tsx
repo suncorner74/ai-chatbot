@@ -44,10 +44,24 @@ export default function DocumentManager({ onChatWithDocument, onChatWithKnowledg
   const [isDragging, setIsDragging] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const previousStatusesRef = useRef<Map<string, string>>(new Map());
 
   const refresh = async () => {
     try {
       const [docs, kbs] = await Promise.all([listDocuments(), listKnowledgeBases()]);
+      const prevMap = previousStatusesRef.current;
+
+      // Detect status transitions
+      docs.documents.forEach((doc) => {
+        const prevStatus = prevMap.get(doc.id);
+        if (prevStatus && prevStatus !== 'READY' && doc.status === 'READY') {
+          setSuccessMessage(`🎉 "${doc.name}" is READY! Successfully indexed ${doc.chunkCount} chunks with Gemini embeddings.`);
+        } else if (prevStatus && prevStatus !== 'FAILED' && doc.status === 'FAILED') {
+          setError(`❌ Processing failed for "${doc.name}": ${doc.processingError || 'Failed to extract content'}`);
+        }
+        prevMap.set(doc.id, doc.status);
+      });
+
       setDocuments(docs.documents);
       setKnowledgeBases(kbs.knowledgeBases);
     } catch (err) {
@@ -58,6 +72,18 @@ export default function DocumentManager({ onChatWithDocument, onChatWithKnowledg
   useEffect(() => {
     void refresh();
   }, []);
+
+  // Poll every 1.5s whenever any document is currently in PROCESSING or UPLOADING state
+  useEffect(() => {
+    const hasProcessing = documents.some((d) => d.status === 'PROCESSING' || d.status === 'UPLOADING');
+    if (!hasProcessing) return;
+
+    const interval = setInterval(() => {
+      void refresh();
+    }, 1500);
+
+    return () => clearInterval(interval);
+  }, [documents]);
 
   const upload = async (file: File) => {
     if (file.size > MAX_UPLOAD_BYTES) {
@@ -70,9 +96,9 @@ export default function DocumentManager({ onChatWithDocument, onChatWithKnowledg
     try {
       const result = await uploadDocument(file, selectedKb || undefined);
       if (result.duplicate) {
-        setSuccessMessage(`Document "${file.name}" already exists and is indexed.`);
+        setSuccessMessage(`Document "${file.name}" already exists and is ready for chat.`);
       } else {
-        setSuccessMessage(`"${file.name}" uploaded successfully! Chunking and indexing complete.`);
+        setSuccessMessage(`"${file.name}" uploaded. Processing chunks and embeddings...`);
       }
       await refresh();
     } catch (err) {
