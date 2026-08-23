@@ -34,7 +34,8 @@ export class ChatController {
       const { message, conversationId, mode, rag } = this.validateRequest(req);
       const result = await this.chatService.streamChat(req.user!.id, conversationId, message, abortController.signal, mode, rag);
       writeSseHeaders(res);
-      if (result.citations.length) res.write(encodeSseEvent({ event: 'sources', data: { sources: result.citations } }));
+      const citations = result.citations ?? [];
+      if (citations.length) res.write(encodeSseEvent({ event: 'sources', data: { sources: citations } }));
       for await (const token of result.tokens) {
         if (firstTokenAt === null) firstTokenAt = performance.now();
         res.write(encodeSseEvent({ event: 'token', data: { token } }));
