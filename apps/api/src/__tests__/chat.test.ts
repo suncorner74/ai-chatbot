@@ -24,6 +24,14 @@ jest.mock('../modules/chat/chat.service', () => ({
   ChatService: jest.fn().mockImplementation(() => ({ streamChat: mockStreamChat })),
 }));
 
+// Keep unit tests independent of the ESM-only Google AI SDK and external API credentials.
+jest.mock('../ai/llm/providers/gemini.provider', () => ({
+  GeminiProvider: jest.fn().mockImplementation(() => ({
+    generateResponse: jest.fn(),
+    streamResponse: jest.fn(),
+  })),
+}));
+
 jest.mock('../ai/llm/providers/openrouter.provider', () => ({
   OpenRouterProvider: jest.fn().mockImplementation(() => ({ streamResponse: jest.fn() })),
 }));
@@ -35,6 +43,8 @@ jest.mock('../config/env', () => ({
     nodeEnv: 'test',
     llmApiKey: 'test-api-key',
     llmModel: 'test-model',
+    geminiApiKey: 'test-gemini-api-key',
+    geminiModel: 'gemini-3.6-flash',
   },
 }));
 
