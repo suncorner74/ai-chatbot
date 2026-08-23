@@ -1,9 +1,9 @@
-import type { NextFunction, Response } from 'express';
+import type { NextFunction, Response as ExpressResponse } from 'express';
 import { env } from '../config/env';
 import type { AuthenticatedRequest } from '../modules/auth/auth.types';
 
 async function incrementDistributed(key: string, windowSeconds: number): Promise<number | null> {
-  if (!env.upstashRedisRestUrl || !env.upstashRedisRestToken) return null;
+  if (!env.upstashRedisRestUrl || !env.upstashRedisToken) return null;
 
   const base = env.upstashRedisRestUrl.replace(/\/$/, '');
   const headers = { Authorization: `Bearer ${env.upstashRedisRestToken}` };
@@ -18,7 +18,7 @@ async function incrementDistributed(key: string, windowSeconds: number): Promise
 }
 
 export function createRateLimiter(limit: number, windowSeconds: number, keyPrefix: string) {
-  return async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  return async (req: AuthenticatedRequest, res: ExpressResponse, next: NextFunction) => {
     try {
       const identity = req.user?.id || req.ip || 'unknown';
       const count = await incrementDistributed(`${keyPrefix}:${identity}`, windowSeconds);
@@ -29,7 +29,7 @@ export function createRateLimiter(limit: number, windowSeconds: number, keyPrefi
       next();
     } catch (error) {
       // Fail closed in production when the distributed limiter is configured.
-      if (env.nodeEnv === 'production' && env.upstashRedisRestUrl && env.upstashRedisRestToken) {
+      if (env.nodeEnv === 'production' && env.upstashRedisRestUrl && env.upstashRedisToken) {
         res.status(503).json({ error: { code: 'RATE_LIMIT_UNAVAILABLE', message: 'Please try again later.' } });
         return;
       }
