@@ -10,5 +10,14 @@ import '@testing-library/jest-dom';
  * This file is executed by Vitest before every test file.
  */
 
-// Mock scrollIntoView since it doesn't exist in jsdom (the test environment)
 window.HTMLElement.prototype.scrollIntoView = function() {};
+window.HTMLElement.prototype.scrollTo = function(options?: ScrollToOptions | number, y?: number) {
+  if (typeof options === 'number') {
+    this.scrollTop = options;
+    return;
+  }
+
+  if (options && typeof options === 'object') {
+    this.scrollTop = options.top ?? this.scrollTop;
+  }
+};

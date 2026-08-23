@@ -39,28 +39,32 @@ describe('useChat hook', () => {
   });
 
   it('handles a successful chat flow', async () => {
-    // 1. Mock the API success response
-    vi.mocked(chatService.sendMessage).mockResolvedValue({ message: 'AI reply', conversationId: 'test-conversation' });
+    vi.mocked(chatService.streamMessage).mockImplementation(async (_message, _conversationId, onEvent) => {
+      onEvent({ event: 'token', data: { token: 'AI reply' } });
+      onEvent({ event: 'done', data: { conversationId: 'test-conversation', ttftMs: null, latencyMs: 1 } });
+    });
 
     const { result } = renderHook(() => useChat());
 
-    // 2. User types a message
     act(() => {
       result.current.setInput('Hi AI');
     });
 
-    // 3. User clicks Send
     await act(async () => {
       await result.current.handleSend();
     });
 
-    // 4. Verify state after send
-    expect(chatService.sendMessage).toHaveBeenCalledWith('Hi AI');
-    expect(result.current.input).toBe(''); // Input cleared
-    expect(result.current.loading).toBe(false); // Loading stopped
-    expect(result.current.error).toBeNull(); // No error
+    expect(chatService.streamMessage).toHaveBeenCalledWith(
+      'Hi AI',
+      undefined,
+      expect.any(Function),
+      expect.any(AbortSignal),
+      'new'
+    );
+    expect(result.current.input).toBe('');
+    expect(result.current.loading).toBe(false);
+    expect(result.current.error).toBeNull();
 
-    // 5. Verify conversation history (User message + AI message)
     expect(result.current.messages).toHaveLength(2);
     expect(result.current.messages[0]).toMatchObject({
       role: 'user',
@@ -73,10 +77,7 @@ describe('useChat hook', () => {
   });
 
   it('handles an API error', async () => {
-    // 1. Mock the API failure
-    vi.mocked(chatService.sendMessage).mockRejectedValue(
-      new Error('API failed')
-    );
+    vi.mocked(chatService.streamMessage).mockRejectedValue(new Error('API failed'));
 
     const { result } = renderHook(() => useChat());
 
@@ -88,11 +89,8 @@ describe('useChat hook', () => {
       await result.current.handleSend();
     });
 
-    // Verify error state
     expect(result.current.error).toBe('API failed');
     expect(result.current.loading).toBe(false);
-    
-    // User message is still added, but no AI message
     expect(result.current.messages).toHaveLength(1);
     expect(result.current.messages[0].role).toBe('user');
   });
@@ -100,12 +98,11 @@ describe('useChat hook', () => {
   it('does not send empty messages', async () => {
     const { result } = renderHook(() => useChat());
 
-    // Send without setting input first
     await act(async () => {
       await result.current.handleSend();
     });
 
-    expect(chatService.sendMessage).not.toHaveBeenCalled();
+    expect(chatService.streamMessage).not.toHaveBeenCalled();
     expect(result.current.messages).toHaveLength(0);
   });
 });

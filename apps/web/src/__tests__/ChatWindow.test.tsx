@@ -20,48 +20,47 @@ describe('ChatWindow integration', () => {
 
   it('renders the empty state initially', () => {
     render(<ChatWindow />);
-    
+
     expect(
       screen.getByText('Send a message to start the conversation.')
     ).toBeInTheDocument();
-    
+
     const input = screen.getByPlaceholderText(/Ask anything/i);
     expect(input).toBeInTheDocument();
-    
+
     const button = screen.getByRole('button', { name: /send/i });
-    expect(button).toBeDisabled(); // Disabled because input is empty
+    expect(button).toBeDisabled();
   });
 
   it('allows user to send a message and see the AI response', async () => {
-    vi.mocked(chatService.sendMessage).mockResolvedValue({ message: 'I am an AI.', conversationId: 'test-conversation' });
+    vi.mocked(chatService.streamMessage).mockImplementation(async (_message, _conversationId, onEvent) => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      onEvent({ event: 'token', data: { token: 'I am an AI.' } });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      onEvent({ event: 'done', data: { conversationId: 'test-conversation', ttftMs: null, latencyMs: 1 } });
+    });
 
     render(<ChatWindow />);
 
     const input = screen.getByPlaceholderText(/Ask anything/i);
     const button = screen.getByRole('button', { name: /send/i });
 
-    // 1. User types
     fireEvent.change(input, { target: { value: 'Hello AI' } });
     expect(button).not.toBeDisabled();
 
-    // 2. User clicks send
     fireEvent.click(button);
 
-    // 3. User message appears immediately
     expect(screen.getByText('Hello AI')).toBeInTheDocument();
-    
-    // 4. Input is cleared
     expect(input).toHaveValue('');
 
-    // 5. Typing indicator appears
-    expect(document.querySelector('.typing-indicator')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(document.querySelector('.typing-indicator')).toBeInTheDocument();
+    });
 
-    // 6. Wait for the API to resolve and the AI message to appear
     await waitFor(() => {
       expect(screen.getByText('I am an AI.')).toBeInTheDocument();
     });
 
-    // 7. Typing indicator disappears
     expect(document.querySelector('.typing-indicator')).not.toBeInTheDocument();
   });
 });

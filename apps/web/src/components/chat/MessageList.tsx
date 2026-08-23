@@ -22,16 +22,26 @@ export default function MessageList({ messages, phase, onRetry, onRegenerate }: 
     setNearBottom(element.scrollHeight - element.scrollTop - element.clientHeight < 120);
   };
 
+  const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
+    const element = messagesContainerRef.current;
+    if (!element) return;
+
+    if (typeof element.scrollTo === 'function') {
+      element.scrollTo({ top: element.scrollHeight, behavior });
+      return;
+    }
+
+    element.scrollTop = element.scrollHeight;
+  };
+
   useEffect(() => {
     const element = messagesContainerRef.current;
     if (!element || !nearBottom) return;
-    element.scrollTo({ top: element.scrollHeight, behavior: phase === 'streaming' ? 'auto' : 'smooth' });
+    scrollToBottom(phase === 'streaming' ? 'auto' : 'smooth');
   }, [messages, nearBottom, phase]);
 
   const jumpToLatest = () => {
-    const element = messagesContainerRef.current;
-    if (!element) return;
-    element.scrollTo({ top: element.scrollHeight, behavior: 'smooth' });
+    scrollToBottom('smooth');
     setNearBottom(true);
   };
 
