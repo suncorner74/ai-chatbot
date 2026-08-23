@@ -1,53 +1,41 @@
 import { FormEvent, KeyboardEvent } from 'react';
+import { ChatPhase } from '../../hooks/useChat';
 
 interface ChatInputProps {
   input: string;
   setInput: (value: string) => void;
-  loading: boolean;
+  phase: ChatPhase;
   onSend: () => void;
+  onStop: () => void;
 }
 
-export default function ChatInput({
-  input,
-  setInput,
-  loading,
-  onSend,
-}: ChatInputProps) {
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    onSend();
-  };
-
+export default function ChatInput({ input, setInput, phase, onSend, onStop }: ChatInputProps) {
+  const loading = phase === 'sending' || phase === 'waiting' || phase === 'streaming';
+  const handleSubmit = (e: FormEvent) => { e.preventDefault(); if (!loading) onSend(); };
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      onSend();
-    }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSend(); }
   };
 
   return (
     <div className="chat-input-container">
       <form className="chat-form" onSubmit={handleSubmit}>
         <span style={{ padding: '0.5rem', color: 'var(--text-muted)' }}>+</span>
-        <textarea
-          className="chat-input"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Ask anything"
-          disabled={loading}
-          rows={1}
-        />
-        <button
-          type="submit"
-          className="chat-submit"
-          disabled={loading || input.trim() === ''}
-          aria-label="Send message"
-        >↑</button>
+        <textarea className="chat-input" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKeyDown} placeholder="Ask anything" disabled={loading} rows={1} />
+        {loading ? (
+          <button type="button" className="chat-submit chat-stop" onClick={onStop} aria-label="Stop generation">■</button>
+        ) : (
+          <button type="submit" className="chat-submit" disabled={input.trim() === ''} aria-label="Send message">↑</button>
+        )}
       </form>
-      <div className="input-disclaimer">
-        Sunvix AI can make mistakes. Check important info.
+      <div className="chat-status" aria-live="polite">
+        {phase === 'sending' && 'Sending…'}
+        {phase === 'waiting' && 'Waiting for the first token…'}
+        {phase === 'streaming' && 'Generating…'}
+        {phase === 'complete' && 'Response complete'}
+        {phase === 'aborted' && 'Generation stopped'}
+        {phase === 'error' && 'Generation failed'}
       </div>
+      <div className="input-disclaimer">Sunvix AI can make mistakes. Check important info.</div>
     </div>
   );
 }
