@@ -1,4 +1,4 @@
-export type RetrievalFilters = { userId: string; organizationId?: string; knowledgeBaseId?: string; documentId?: string; documentType?: string; department?: string; tags?: string[]; };
+export type RetrievalFilters = { userId: string; organizationId?: string; knowledgeBaseId?: string; documentId?: string; documentType?: string; department?: string; tags?: string[] };
 export type SourceCitation = { chunkId: string; documentId: string; documentName: string; page?: number | null; section?: string | null; score: number };
 export type RetrievedChunk = SourceCitation & { content: string; context?: string | null; parentContent?: string | null; vectorScore?: number; keywordScore?: number; rerankScore?: number; score: number };
-export type RagResult = { query: string; rewrittenQuery: string; chunks: RetrievedChunk[]; citations: SourceCitation[]; hasEvidence: boolean; metrics: { retrievalLatencyMs: number; rerankLatencyMs: number; candidateCount: number; selectedCount: number } };
+export type RagResult = { query: string; rewrittenQuery: string; evidence: string; chunks: RetrievedChunk[]; citations: SourceCitation[]; hasEvidence: boolean; metrics: { retrievalLatencyMs: number; rerankLatencyMs: number; candidateCount: number; selectedCount: number } };
