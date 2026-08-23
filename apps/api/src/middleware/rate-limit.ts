@@ -3,7 +3,7 @@ import { env } from '../config/env';
 import type { AuthenticatedRequest } from '../modules/auth/auth.types';
 
 async function incrementDistributed(key: string, windowSeconds: number): Promise<number | null> {
-  if (!env.upstashRedisRestUrl || !env.upstashRedisToken) return null;
+  if (!env.upstashRedisRestUrl || !env.upstashRedisRestToken) return null;
 
   const base = env.upstashRedisRestUrl.replace(/\/$/, '');
   const headers = { Authorization: `Bearer ${env.upstashRedisRestToken}` };
@@ -29,7 +29,7 @@ export function createRateLimiter(limit: number, windowSeconds: number, keyPrefi
       next();
     } catch (error) {
       // Fail closed in production when the distributed limiter is configured.
-      if (env.nodeEnv === 'production' && env.upstashRedisRestUrl && env.upstashRedisToken) {
+      if (env.nodeEnv === 'production' && env.upstashRedisRestUrl && env.upstashRedisRestToken) {
         res.status(503).json({ error: { code: 'RATE_LIMIT_UNAVAILABLE', message: 'Please try again later.' } });
         return;
       }
