@@ -195,16 +195,18 @@
 
 /* --- Toolbar --- */
 .doc-manager__toolbar {
-  background: rgba(18, 20, 30, 0.65);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(13, 16, 26, 0.92);
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 16px;
-  padding: 1rem 1.5rem;
+  padding: 1.1rem 1.5rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
   gap: 1rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
 }
 
 .doc-manager__filter {
@@ -224,8 +226,8 @@
 }
 
 .doc-select {
-  background: rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 10px;
   padding: 0.5rem 0.85rem;
   color: #ffffff;
@@ -259,11 +261,12 @@
 
 /* --- Drag & Drop Zone --- */
 .doc-dropzone {
-  border: 2px dashed rgba(255, 255, 255, 0.15);
-  background: rgba(18, 20, 30, 0.5);
-  backdrop-filter: blur(16px);
+  border: 2px dashed rgba(99, 102, 241, 0.35);
+  background: rgba(13, 16, 26, 0.92);
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
   border-radius: 18px;
-  padding: 2rem;
+  padding: 2.25rem 2rem;
   text-align: center;
   cursor: pointer;
   transition: all 0.25s ease;
@@ -271,13 +274,15 @@
   flex-direction: column;
   align-items: center;
   gap: 0.75rem;
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.35);
 }
 
 .doc-dropzone:hover,
 .doc-dropzone--active {
-  border-color: #6366f1;
-  background: rgba(99, 102, 241, 0.08);
+  border-color: #818cf8;
+  background: rgba(99, 102, 241, 0.12);
   transform: translateY(-2px);
+  box-shadow: 0 15px 40px rgba(99, 102, 241, 0.2);
 }
 
 .doc-dropzone--busy {
