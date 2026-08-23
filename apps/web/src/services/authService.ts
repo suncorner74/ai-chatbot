@@ -6,7 +6,7 @@ export interface AuthUser {
 
 interface AuthResponse { user: AuthUser }
 
-const API_URL = import.meta.env.VITE_API_URL;
+const API_URL = import.meta.env.PROD ? '' : import.meta.env.VITE_API_URL;
 
 async function request(path: string, options: RequestInit = {}): Promise<AuthResponse> {
   const response = await fetch(`${API_URL}/api/auth${path}`, {

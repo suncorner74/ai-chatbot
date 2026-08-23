@@ -8,7 +8,7 @@ export interface ConversationSummary { id: string; title: string | null; created
 interface ConversationsResponse { conversations: ConversationSummary[] }
 interface MessagesResponse { messages: Array<{ id: string; role: 'user' | 'assistant'; content: string }> }
 
-const API_URL = import.meta.env.VITE_API_URL;
+const API_URL = import.meta.env.PROD ? '' : import.meta.env.VITE_API_URL;
 
 async function request<T>(path: string): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, { credentials: 'include' });
