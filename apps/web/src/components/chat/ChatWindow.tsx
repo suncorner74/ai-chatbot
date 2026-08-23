@@ -8,7 +8,7 @@ interface ChatWindowProps { chat?: UseChatReturn; }
 export default function ChatWindow({ chat }: ChatWindowProps) {
   const localChat = useChat();
   const activeChat = chat ?? localChat;
-  const { messages, input, phase, error, setInput, handleSend, stopGeneration, retry, regenerate } = activeChat;
+  const { messages, input, phase, error, provider, setProvider, setInput, handleSend, stopGeneration, retry, regenerate } = activeChat;
 
   return (
     <div className="chat-window">
@@ -19,7 +19,7 @@ export default function ChatWindow({ chat }: ChatWindowProps) {
         </div>
       )}
       <MessageList messages={messages} phase={phase} onRetry={() => void retry()} onRegenerate={() => void regenerate()} />
-      <ChatInput input={input} setInput={setInput} phase={phase} onSend={() => void handleSend()} onStop={stopGeneration} />
+      <ChatInput input={input} setInput={setInput} phase={phase} provider={provider} setProvider={setProvider} onSend={() => void handleSend()} onStop={stopGeneration} />
     </div>
   );
 }
