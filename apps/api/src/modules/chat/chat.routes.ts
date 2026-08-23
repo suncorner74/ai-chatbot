@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { OpenRouterProvider } from '../../ai/llm/providers/openrouter.provider';
 import { requireAuth } from '../../middleware/auth';
 import { createRateLimiter } from '../../middleware/rate-limit';
+import { enforceDailyChatLimit } from '../../middleware/usage-limit';
 import { ChatController } from './chat.controller';
 import { ChatService } from './chat.service';
 
@@ -10,7 +11,7 @@ const llmProvider = new OpenRouterProvider();
 const chatService = new ChatService(llmProvider);
 const chatController = new ChatController(chatService);
 
-router.post('/', requireAuth, createRateLimiter(30, 60, 'chat'), (req, res, next) =>
+router.post('/', requireAuth, createRateLimiter(30, 60, 'chat'), enforceDailyChatLimit, (req, res, next) =>
   chatController.sendMessage(req, res, next)
 );
 
