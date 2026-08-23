@@ -14,7 +14,9 @@
   },
   "dependencies": {
     "@ai-chatbot/shared-types": "workspace:*",
+    "@ai-sdk/google": "^3.0.111",
     "@prisma/client": "^6.16.2",
+    "ai": "^6.0.264",
     "argon2": "^0.44.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.1",
