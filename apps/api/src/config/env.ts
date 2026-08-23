@@ -5,12 +5,7 @@ dotenv.config({ path: path.resolve(__dirname, '../../../../.env') });
 
 function requireEnv(name: string): string {
   const value = process.env[name];
-  if (!value) {
-    throw new Error(
-      `[Config] Missing required environment variable: ${name}\n` +
-        `  → Copy .env.example to .env and fill in your values.`
-    );
-  }
+  if (!value) throw new Error(`[Config] Missing required environment variable: ${name}\n  → Copy .env.example to .env and fill in your values.`);
   return value;
 }
 
@@ -22,7 +17,7 @@ export const env = {
   llmModel: process.env.LLM_MODEL || 'gpt-4o-mini',
   databaseUrl: process.env.DATABASE_URL || '',
   sessionSecret: process.env.SESSION_SECRET || '',
-  sessionCookieName: process.env.SESSION_COOKIE_NAME || '__Host-session',
+  sessionCookieName: process.env.SESSION_COOKIE_NAME || (process.env.NODE_ENV === 'production' ? '__Host-session' : 'session'),
   sessionTtlDays: parseInt(process.env.SESSION_TTL_DAYS || '7', 10),
   chatRateLimitPerMinute: parseInt(process.env.CHAT_RATE_LIMIT_PER_MINUTE || '30', 10),
   chatDailyRequestLimit: parseInt(process.env.CHAT_DAILY_REQUEST_LIMIT || '50', 10),
