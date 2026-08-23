@@ -1,62 +1,63 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ChatMessage } from '../../types/chat';
+import { ChatPhase } from '../../hooks/useChat';
 import MessageItem from './MessageItem';
 
 interface MessageListProps {
   messages: ChatMessage[];
-  loading: boolean;
+  phase: ChatPhase;
+  onRetry: () => void;
+  onRegenerate: () => void;
 }
 
-/**
- * MessageList — renders the conversation history.
- *
- * AUTO-SCROLL LOGIC:
- * We want the chat to automatically scroll to the bottom whenever a new
- * message arrives (like WhatsApp or ChatGPT).
- *
- * How it works:
- * 1. We create a ref attached to the scrollable message container.
- * 2. `useEffect` runs whenever the `messages` array changes.
- * 3. Inside `useEffect`, we move only that container to its scroll height.
- */
-export default function MessageList({ messages, loading }: MessageListProps) {
+export default function MessageList({ messages, phase, onRetry, onRegenerate }: MessageListProps) {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const [nearBottom, setNearBottom] = useState(true);
+  const lastAssistant = [...messages].reverse().find((message) => message.role === 'assistant');
+  const isStreaming = phase === 'streaming' && lastAssistant?.content !== undefined;
 
-  // Auto-scroll to bottom when messages change
+  const updateScrollState = () => {
+    const element = messagesContainerRef.current;
+    if (!element) return;
+    setNearBottom(element.scrollHeight - element.scrollTop - element.clientHeight < 120);
+  };
+
   useEffect(() => {
-    const messagesContainer = messagesContainerRef.current;
-    if (messagesContainer) {
-      messagesContainer.scrollTop = messagesContainer.scrollHeight;
-    }
-  }, [messages]);
+    const element = messagesContainerRef.current;
+    if (!element || !nearBottom) return;
+    element.scrollTo({ top: element.scrollHeight, behavior: phase === 'streaming' ? 'auto' : 'smooth' });
+  }, [messages, nearBottom, phase]);
+
+  const jumpToLatest = () => {
+    const element = messagesContainerRef.current;
+    if (!element) return;
+    element.scrollTo({ top: element.scrollHeight, behavior: 'smooth' });
+    setNearBottom(true);
+  };
 
   if (messages.length === 0) {
-    return (
-      <div ref={messagesContainerRef} className="chat-messages chat-empty">
-        <p>Send a message to start the conversation.</p>
-      </div>
-    );
+    return <div ref={messagesContainerRef} className="chat-messages chat-empty"><p>Send a message to start the conversation.</p></div>;
   }
 
   return (
-    <div ref={messagesContainerRef} className="chat-messages">
-      {messages.map((msg) => (
-        <MessageItem key={msg.id} message={msg} />
-      ))}
-      
-      {/* 
-        TYPING INDICATOR:
-        Shows a temporary animated dot sequence while waiting for the API.
-      */}
-      {loading && (
-        <div className="message-item message-item--assistant">
-          <div className="message-content typing-indicator">
-            <span style={{ fontSize: '1.2rem' }}>●</span>
+    <div className="chat-messages-wrapper">
+      <div ref={messagesContainerRef} className="chat-messages" onScroll={updateScrollState}>
+        {messages.map((msg, index) => (
+          <MessageItem
+            key={msg.id}
+            message={msg}
+            isStreaming={isStreaming && index === messages.length - 1 && msg.role === 'assistant'}
+            onRetry={index === messages.length - 1 && phase === 'error' ? onRetry : undefined}
+            onRegenerate={index === messages.length - 1 && msg.role === 'assistant' && phase === 'complete' ? onRegenerate : undefined}
+          />
+        ))}
+        {phase === 'waiting' && (
+          <div className="message-item message-item--assistant">
+            <div className="message-content typing-indicator" aria-label="Waiting for response"><span>●</span><span>●</span><span>●</span></div>
           </div>
-        </div>
-      )}
-
-      <div />
+        )}
+      </div>
+      {!nearBottom && <button type="button" className="jump-to-latest" onClick={jumpToLatest}>↓ Jump to latest</button>}
     </div>
   );
 }
