@@ -386,6 +386,8 @@ configured for the **Production** environment.
 
 The frontend normally does **not** need the PostgreSQL connection string. The database URL contains credentials and must stay server-side.
 
+For separate Vercel frontend and API projects, configure `FRONTEND_URL` on the API project with the exact frontend origin, and deploy the API with `NODE_ENV=production`. Production session cookies use `SameSite=None; Secure` so credentialed browser requests between the two Vercel projects retain authentication.
+
 After adding or changing Vercel environment variables, redeploy the affected project so the new deployment receives the values.
 
 ### Production database tables

@@ -8,7 +8,7 @@ describe('session cookies', () => {
     const value = response.setHeader.mock.calls[0][1] as string;
     expect(value).toContain(`${env.sessionCookieName}=session-id`);
     expect(value).toContain('HttpOnly');
-    expect(value).toContain('SameSite=Lax');
+    expect(value).toContain(`SameSite=${env.nodeEnv === 'production' ? 'None' : 'Lax'}`);
     expect(value).toContain('Path=/');
   });
 

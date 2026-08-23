@@ -6,7 +6,7 @@ export function setSessionCookie(res: Response, sessionId: string) {
     `${env.sessionCookieName}=${encodeURIComponent(sessionId)}`,
     'Path=/',
     'HttpOnly',
-    'SameSite=Lax',
+    `SameSite=${env.nodeEnv === 'production' ? 'None' : 'Lax'}`,
     `Max-Age=${Math.max(1, env.sessionTtlDays * 24 * 60 * 60)}`,
   ];
 
@@ -19,7 +19,7 @@ export function clearSessionCookie(res: Response) {
     `${env.sessionCookieName}=`,
     'Path=/',
     'HttpOnly',
-    'SameSite=Lax',
+    `SameSite=${env.nodeEnv === 'production' ? 'None' : 'Lax'}`,
     'Max-Age=0',
   ];
 
