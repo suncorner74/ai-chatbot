@@ -18,6 +18,8 @@ model User {
   sessions      Session[]
   conversations Conversation[]
   usage         Usage[]
+  documents     Document[]
+  knowledgeBases KnowledgeBase[]
 
   @@index([email])
 }
@@ -71,4 +73,104 @@ model Usage {
 
   @@unique([userId, date])
   @@index([userId, date])
+}
+
+model KnowledgeBase {
+  id             String              @id @default(cuid())
+  userId         String
+  name           String
+  description    String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  user           User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documents      KnowledgeBaseDocument[]
+
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+model KnowledgeBaseDocument {
+  knowledgeBaseId String
+  documentId      String
+  knowledgeBase   KnowledgeBase @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+  document        Document      @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@id([knowledgeBaseId, documentId])
+  @@index([documentId])
+}
+
+model Document {
+  id                String        @id @default(cuid())
+  userId            String
+  organizationId    String?
+  name              String
+  mimeType          String
+  sizeBytes         Int
+  contentHash       String
+  fileHash          String
+  documentVersion   Int           @default(1)
+  status            DocumentStatus @default(UPLOADING)
+  processingError   String?
+  sourceContent     String?
+  metadata          String?
+  chunkCount        Int           @default(0)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  processedAt       DateTime?
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chunks            DocumentChunk[]
+  versions          DocumentVersion[]
+  knowledgeBases    KnowledgeBaseDocument[]
+
+  @@index([userId])
+  @@index([organizationId])
+  @@index([status])
+  @@index([contentHash])
+  @@index([fileHash])
+  @@index([createdAt])
+}
+
+model DocumentVersion {
+  id              String   @id @default(cuid())
+  documentId      String
+  version         Int
+  contentHash     String
+  fileHash        String
+  embeddingVersion String
+  createdAt       DateTime @default(now())
+  document        Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, version])
+  @@index([contentHash])
+}
+
+model DocumentChunk {
+  id             String   @id @default(cuid())
+  documentId     String
+  parentId       String?
+  chunkIndex     Int
+  page           Int?
+  section        String?
+  heading        String?
+  content        String
+  context        String?
+  contentHash    String
+  embedding      String?
+  embeddingVersion String?
+  metadata       String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  document       Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, chunkIndex])
+  @@index([documentId])
+  @@index([parentId])
+  @@index([contentHash])
+}
+
+enum DocumentStatus {
+  UPLOADING
+  PROCESSING
+  READY
+  FAILED
 }
