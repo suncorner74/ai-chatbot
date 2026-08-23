@@ -1,6 +1,9 @@
+import type { SourceCitation } from '../rag/rag.types';
+
 export type ChatStreamEvent =
   | { event: 'token'; data: { token: string } }
   | { event: 'done'; data: { conversationId: string; ttftMs: number | null; latencyMs: number } }
+  | { event: 'sources'; data: { sources: SourceCitation[] } }
   | { event: 'error'; data: { code: string; message: string } };
 
 export function encodeSseEvent(event: ChatStreamEvent): string {
