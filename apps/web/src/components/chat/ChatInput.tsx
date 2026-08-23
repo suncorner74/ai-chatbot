@@ -32,7 +32,7 @@ export default function ChatInput({ input, setInput, phase, provider, setProvide
             disabled={loading}
             aria-label="Select AI model"
           >
-            <option value="gemini">✨ Gemini 2.5 Flash</option>
+            <option value="gemini">✨ Gemini 3.6 Flash</option>
             <option value="openrouter">🔀 OpenRouter</option>
           </select>
           {loading ? (
