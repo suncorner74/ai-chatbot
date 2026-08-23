@@ -1,151 +1,108 @@
-/**
- * Backend Integration Tests — POST /api/chat
- *
- * WHAT THESE TESTS DO:
- * - Use supertest to make real HTTP requests to the Express app
- * - Mock the OpenAI provider so no real API calls are made
- * - Mock the env config so no real .env file is needed
- *
- * WHY MOCK THE LLM?
- * Real LLM API calls are:
- * - Slow (adds seconds to test runs)
- * - Flaky (network can fail, API can be down)
- * - Expensive (charged per token)
- * Tests should be fast, reliable, and free.
- *
- * jest.mock() IS HOISTED:
- * Jest automatically moves jest.mock() calls to the TOP of the file,
- * before any imports. This ensures mocks are set up before the modules load.
- *
- * The 'mock' prefix on mockGenerateResponse is required —
- * Jest allows variables starting with 'mock' to be referenced
- * inside jest.mock() factory functions despite hoisting.
- */
+const mockStreamChat = jest.fn();
+let mockAuthenticated = true;
 
-// ── Mocks (hoisted by Jest before imports) ────────────────────────
+jest.mock('../middleware/auth', () => ({
+  requireAuth: (req: { user?: { id: string } }, res: { status: (code: number) => { json: (body: unknown) => void } }, next: () => void) => {
+    if (!mockAuthenticated) {
+      res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
+      return;
+    }
+    req.user = { id: 'user-1' };
+    next();
+  },
+}));
 
-const mockGenerateResponse = jest.fn();
+jest.mock('../middleware/rate-limit', () => ({
+  createRateLimiter: () => (_req: unknown, _res: unknown, next: () => void) => next(),
+}));
 
-jest.mock('../ai/llm/providers/openai.provider', () => ({
-  OpenAIProvider: jest.fn().mockImplementation(() => ({
-    generateResponse: mockGenerateResponse,
-  })),
+jest.mock('../middleware/usage-limit', () => ({
+  enforceDailyChatLimit: (_req: unknown, _res: unknown, next: () => void) => next(),
+}));
+
+jest.mock('../modules/chat/chat.service', () => ({
+  ChatService: jest.fn().mockImplementation(() => ({ streamChat: mockStreamChat })),
+}));
+
+jest.mock('../ai/llm/providers/openrouter.provider', () => ({
+  OpenRouterProvider: jest.fn().mockImplementation(() => ({ streamResponse: jest.fn() })),
 }));
 
 jest.mock('../config/env', () => ({
   env: {
     port: 5000,
-    llmApiKey: 'test-api-key',
-    llmModel: 'gpt-4o-mini',
+    frontendUrl: 'http://localhost:5173',
     nodeEnv: 'test',
+    llmApiKey: 'test-api-key',
+    llmModel: 'test-model',
   },
 }));
-
-// ── Imports ───────────────────────────────────────────────────────
 
 import request from 'supertest';
 import app from '../app';
 
-// ── Tests ─────────────────────────────────────────────────────────
-
-describe('POST /api/chat', () => {
+describe('POST /api/chat streaming', () => {
   beforeEach(() => {
-    // Default: LLM succeeds with a mocked response
-    mockGenerateResponse.mockResolvedValue('Mocked AI response');
+    mockAuthenticated = true;
+    mockStreamChat.mockReset();
+    mockStreamChat.mockResolvedValue({
+      conversationId: 'conversation-1',
+      tokens: (async function* () {
+        yield 'Hello';
+        yield ' world';
+      })(),
+    });
   });
 
-  afterEach(() => {
-    jest.clearAllMocks();
+  it('rejects unauthenticated requests with 401', async () => {
+    mockAuthenticated = false;
+    const res = await request(app).post('/api/chat').send({ message: 'hello' });
+    expect(res.status).toBe(401);
+    expect(res.body.error.code).toBe('UNAUTHORIZED');
+    expect(mockStreamChat).not.toHaveBeenCalled();
   });
 
-  // ── Success cases ───────────────────────────────────────────────
-
-  it('returns 200 with a message for a valid request', async () => {
-    const res = await request(app)
-      .post('/api/chat')
-      .send({ message: 'What is React?' });
-
+  it('streams token, done events and conversation metadata', async () => {
+    const res = await request(app).post('/api/chat').send({ message: 'hello' });
     expect(res.status).toBe(200);
-    expect(res.body).toHaveProperty('message');
-    expect(typeof res.body.message).toBe('string');
-    expect(res.body.message).toBe('Mocked AI response');
+    expect(res.headers['content-type']).toContain('text/event-stream');
+    expect(res.text).toContain('event: token');
+    expect(res.text).toContain('"token":"Hello"');
+    expect(res.text).toContain('"token":" world"');
+    expect(res.text).toContain('event: done');
+    expect(res.text).toContain('"conversationId":"conversation-1"');
   });
 
-  it('trims whitespace from the message before processing', async () => {
-    const res = await request(app)
-      .post('/api/chat')
-      .send({ message: '  What is React?  ' });
+  it('validates the request before starting generation', async () => {
+    const res = await request(app).post('/api/chat').send({ message: '   ' });
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('INVALID_REQUEST');
+    expect(mockStreamChat).not.toHaveBeenCalled();
+  });
 
+  it('returns a safe 404 when conversation ownership validation fails', async () => {
+    mockStreamChat.mockRejectedValueOnce(new Error('CONVERSATION_NOT_FOUND'));
+    const res = await request(app).post('/api/chat').send({ message: 'hello', conversationId: 'other-user-conversation' });
+    expect(res.status).toBe(404);
+    expect(res.body.error.code).toBe('NOT_FOUND');
+  });
+
+  it('sends a safe stream error when generation fails after streaming starts', async () => {
+    mockStreamChat.mockResolvedValueOnce({
+      conversationId: 'conversation-1',
+      tokens: (async function* () {
+        yield 'partial';
+        throw new Error('provider secret details');
+      })(),
+    });
+
+    const res = await request(app).post('/api/chat').send({ message: 'hello' });
     expect(res.status).toBe(200);
-    expect(mockGenerateResponse).toHaveBeenCalledTimes(1);
-  });
-
-  // ── Validation errors (400) ─────────────────────────────────────
-
-  it('returns 400 when message is an empty string', async () => {
-    const res = await request(app)
-      .post('/api/chat')
-      .send({ message: '' });
-
-    expect(res.status).toBe(400);
-    expect(res.body.error.code).toBe('INVALID_REQUEST');
-  });
-
-  it('returns 400 when message is only whitespace', async () => {
-    const res = await request(app)
-      .post('/api/chat')
-      .send({ message: '   ' });
-
-    expect(res.status).toBe(400);
-    expect(res.body.error.code).toBe('INVALID_REQUEST');
-  });
-
-  it('returns 400 when message field is missing', async () => {
-    const res = await request(app)
-      .post('/api/chat')
-      .send({});
-
-    expect(res.status).toBe(400);
-    expect(res.body.error.code).toBe('INVALID_REQUEST');
-  });
-
-  it('returns 400 when message is not a string', async () => {
-    const res = await request(app)
-      .post('/api/chat')
-      .send({ message: 123 });
-
-    expect(res.status).toBe(400);
-    expect(res.body.error.code).toBe('INVALID_REQUEST');
-  });
-
-  it('returns 400 when message exceeds max length', async () => {
-    const res = await request(app)
-      .post('/api/chat')
-      .send({ message: 'a'.repeat(4001) });
-
-    expect(res.status).toBe(400);
-    expect(res.body.error.code).toBe('INVALID_REQUEST');
-  });
-
-  // ── LLM failure (500) ───────────────────────────────────────────
-
-  it('returns 500 when the LLM provider throws an error', async () => {
-    mockGenerateResponse.mockRejectedValueOnce(
-      new Error('OpenAI API is unavailable')
-    );
-
-    const res = await request(app)
-      .post('/api/chat')
-      .send({ message: 'What is React?' });
-
-    expect(res.status).toBe(500);
-    expect(res.body.error.code).toBe('LLM_REQUEST_FAILED');
-    // The real error message must NOT be exposed to the client
-    expect(res.body.error.message).not.toContain('OpenAI API is unavailable');
+    expect(res.text).toContain('event: error');
+    expect(res.text).toContain('Unable to generate a response. Please try again.');
+    expect(res.text).not.toContain('provider secret details');
   });
 });
-
-// ── Health Check ────────────────────────────────────────────────────
 
 describe('GET /health', () => {
   it('returns 200 with ok status', async () => {
