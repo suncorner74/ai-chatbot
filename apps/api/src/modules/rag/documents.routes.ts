@@ -1,11 +1,13 @@
 import { Router } from 'express';
 import { requireAuth } from '../../middleware/auth';
-import { DocumentService } from './document.service';
 import { GeminiProvider } from '../../ai/llm/providers/gemini.provider';
 import { ChatService } from '../chat/chat.service';
+import { DocumentService } from './document.service';
+import { RagService } from './rag.service';
 
 const router = Router();
 const service = new DocumentService();
+const ragService = new RagService();
 function errorStatus(error: unknown): number { const code = error instanceof Error ? error.message : ''; if (code === 'DOCUMENT_NOT_FOUND' || code === 'KNOWLEDGE_BASE_NOT_FOUND') return 404; if (code === 'UNSUPPORTED_DOCUMENT_TYPE' || code === 'DOCUMENT_TOO_LARGE' || code === 'INVALID_DOCUMENT_NAME') return 400; if (code === 'DOCUMENT_EMPTY') return 422; return 500; }
 function filename(value: string | string[] | undefined): string { const raw = Array.isArray(value) ? value[0] : value || ''; try { return decodeURIComponent(raw).trim(); } catch { return raw.trim(); } }
 router.use(requireAuth);
@@ -15,18 +17,15 @@ router.get('/knowledge-bases/:id', async (req, res) => { const kb = await servic
 router.delete('/knowledge-bases/:id', async (req, res) => { try { await service.removeKnowledgeBase(req.user!.id, req.params.id); res.status(204).send(); } catch { res.status(404).json({ error: { code: 'KNOWLEDGE_BASE_NOT_FOUND', message: 'Knowledge base not found.' } }); } });
 router.post('/', (req, res) => { const name = filename(req.headers['x-filename']); const mimeType = String(req.headers['content-type'] || '').split(';')[0].trim(); const knowledgeBaseId = typeof req.query.knowledgeBaseId === 'string' ? req.query.knowledgeBaseId : undefined; const buffer = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0); service.create(req.user!.id, name, mimeType, buffer, knowledgeBaseId).then((result) => res.status(result.duplicate ? 200 : 202).json(result)).catch((error) => { const status = errorStatus(error); res.status(status).json({ error: { code: error instanceof Error ? error.message : 'DOCUMENT_UPLOAD_FAILED', message: status >= 500 ? 'Unable to process document.' : 'Invalid document upload.' } }); }); });
 router.get('/', async (req, res) => { res.json({ documents: await service.list(req.user!.id) }); });
+router.post('/rag-debug', async (req, res) => {
+  if (process.env.NODE_ENV === 'production') { res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Not found.' } }); return; }
+  const question = typeof req.body?.question === 'string' ? req.body.question.trim() : '';
+  if (!question) { res.status(400).json({ error: { code: 'INVALID_REQUEST', message: 'question is required.' } }); return; }
+  const result = await ragService.retrieve(req.user!.id, question, { documentId: typeof req.body?.documentId === 'string' ? req.body.documentId : undefined, knowledgeBaseId: typeof req.body?.knowledgeBaseId === 'string' ? req.body.knowledgeBaseId : undefined });
+  res.json({ question, rewrittenQuery: result.rewrittenQuery, retrieved: result.chunks.map((chunk) => ({ chunkId: chunk.chunkId, documentName: chunk.documentName, page: chunk.page, section: chunk.section, retrievalScore: chunk.score, rerankScore: chunk.rerankScore })), metrics: result.metrics, hasEvidence: result.hasEvidence });
+});
 router.get('/:id/status', async (req, res) => { const document = await service.get(req.user!.id, req.params.id); if (!document) { res.status(404).json({ error: { code: 'DOCUMENT_NOT_FOUND', message: 'Document not found.' } }); return; } res.json({ id: document.id, status: document.status, chunkCount: document.chunkCount, processingError: document.processingError }); });
 router.get('/:id', async (req, res) => { const document = await service.get(req.user!.id, req.params.id); if (!document) { res.status(404).json({ error: { code: 'DOCUMENT_NOT_FOUND', message: 'Document not found.' } }); return; } res.json({ document }); });
 router.delete('/:id', async (req, res) => { try { await service.remove(req.user!.id, req.params.id); res.status(204).send(); } catch { res.status(404).json({ error: { code: 'DOCUMENT_NOT_FOUND', message: 'Document not found.' } }); } });
-
-router.post('/:id/chat', async (req, res) => {
-  const document = await service.get(req.user!.id, req.params.id);
-  if (!document) { res.status(404).json({ error: { code: 'DOCUMENT_NOT_FOUND', message: 'Document not found.' } }); return; }
-  if (document.status !== 'READY') { res.status(409).json({ error: { code: 'DOCUMENT_NOT_READY', message: 'Document is still being processed.' } }); return; }
-  const message = typeof req.body?.message === 'string' ? req.body.message.trim() : '';
-  if (!message) { res.status(400).json({ error: { code: 'INVALID_REQUEST', message: 'Message is required.' } }); return; }
-  try { const result = await new ChatService(new GeminiProvider()).chat(req.user!.id, typeof req.body?.conversationId === 'string' ? req.body.conversationId : undefined, message, { enabled: true, documentId: document.id }); res.json(result); }
-  catch { res.status(500).json({ error: { code: 'DOCUMENT_CHAT_FAILED', message: 'Unable to answer from the document.' } }); }
-});
-
+router.post('/:id/chat', async (req, res) => { const document = await service.get(req.user!.id, req.params.id); if (!document) { res.status(404).json({ error: { code: 'DOCUMENT_NOT_FOUND', message: 'Document not found.' } }); return; } if (document.status !== 'READY') { res.status(409).json({ error: { code: 'DOCUMENT_NOT_READY', message: 'Document is still being processed.' } }); return; } const message = typeof req.body?.message === 'string' ? req.body.message.trim() : ''; if (!message) { res.status(400).json({ error: { code: 'INVALID_REQUEST', message: 'Message is required.' } }); return; } try { const result = await new ChatService(new GeminiProvider()).chat(req.user!.id, typeof req.body?.conversationId === 'string' ? req.body.conversationId : undefined, message, { enabled: true, documentId: document.id }); res.json(result); } catch { res.status(500).json({ error: { code: 'DOCUMENT_CHAT_FAILED', message: 'Unable to answer from the document.' } }); } });
 export default router;
