@@ -25,7 +25,7 @@ describe('ChatWindow integration', () => {
       screen.getByText('Send a message to start the conversation.')
     ).toBeInTheDocument();
     
-    const input = screen.getByPlaceholderText(/Type your message/i);
+    const input = screen.getByPlaceholderText(/Ask anything/i);
     expect(input).toBeInTheDocument();
     
     const button = screen.getByRole('button', { name: /send/i });
@@ -33,11 +33,11 @@ describe('ChatWindow integration', () => {
   });
 
   it('allows user to send a message and see the AI response', async () => {
-    vi.mocked(chatService.sendMessage).mockResolvedValue('I am an AI.');
+    vi.mocked(chatService.sendMessage).mockResolvedValue({ message: 'I am an AI.', conversationId: 'test-conversation' });
 
     render(<ChatWindow />);
 
-    const input = screen.getByPlaceholderText(/Type your message/i);
+    const input = screen.getByPlaceholderText(/Ask anything/i);
     const button = screen.getByRole('button', { name: /send/i });
 
     // 1. User types
@@ -54,7 +54,7 @@ describe('ChatWindow integration', () => {
     expect(input).toHaveValue('');
 
     // 5. Typing indicator appears
-    expect(screen.getByText('Thinking...')).toBeInTheDocument();
+    expect(document.querySelector('.typing-indicator')).toBeInTheDocument();
 
     // 6. Wait for the API to resolve and the AI message to appear
     await waitFor(() => {
@@ -62,6 +62,6 @@ describe('ChatWindow integration', () => {
     });
 
     // 7. Typing indicator disappears
-    expect(screen.queryByText('Thinking...')).not.toBeInTheDocument();
+    expect(document.querySelector('.typing-indicator')).not.toBeInTheDocument();
   });
 });

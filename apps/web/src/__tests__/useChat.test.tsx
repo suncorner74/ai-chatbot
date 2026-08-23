@@ -40,7 +40,7 @@ describe('useChat hook', () => {
 
   it('handles a successful chat flow', async () => {
     // 1. Mock the API success response
-    vi.mocked(chatService.sendMessage).mockResolvedValue('AI reply');
+    vi.mocked(chatService.sendMessage).mockResolvedValue({ message: 'AI reply', conversationId: 'test-conversation' });
 
     const { result } = renderHook(() => useChat());
 

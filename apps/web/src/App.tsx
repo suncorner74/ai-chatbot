@@ -2,14 +2,38 @@ import ChatWindow from './components/chat/ChatWindow';
 import AuthScreen from './components/auth/AuthScreen';
 import { useAuth } from './hooks/useAuth';
 import { useChat } from './hooks/useChat';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 function App() {
   const auth = useAuth();
-  const chat = useChat();
+  const chat = useChat(auth.user?.id);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
     () => typeof window !== 'undefined' && window.matchMedia('(max-width: 700px)').matches
   );
+
+  useEffect(() => {
+    if (!auth.loading && !auth.user && window.location.pathname !== '/login') {
+      window.history.replaceState({}, '', '/login');
+    }
+  }, [auth.loading, auth.user]);
+
+  useEffect(() => {
+    if (!profileMenuOpen) return;
+    const closeMenu = (event: MouseEvent) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) setProfileMenuOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setProfileMenuOpen(false);
+    };
+    document.addEventListener('mousedown', closeMenu);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('mousedown', closeMenu);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [profileMenuOpen]);
 
   if (auth.loading) {
     return <main className="auth-screen"><div className="auth-card"><p>Loading your account…</p></div></main>;
@@ -54,10 +78,31 @@ function App() {
             ))}
           </div>
         </div>
-        <div className="sidebar-footer">
-          <button className="menu-item user-profile" onClick={() => void auth.logout()} title="Sign out">
+        <div className="sidebar-footer" ref={profileMenuRef}>
+          {profileMenuOpen && (
+            <div className="profile-menu" role="menu">
+              <div className="profile-menu-account">
+                <div className="profile-circle">{(auth.user.name || auth.user.email)[0].toUpperCase()}</div>
+                <div>
+                  <strong>{auth.user.name || auth.user.email}</strong>
+                  <span>Free</span>
+                </div>
+                <span className="profile-menu-chevron" aria-hidden="true">›</span>
+              </div>
+              <div className="profile-menu-divider" />
+              <button className="profile-menu-item" type="button" role="menuitem"><span>✧</span> Upgrade plan</button>
+              <button className="profile-menu-item" type="button" role="menuitem"><span>◷</span> Personalization</button>
+              <button className="profile-menu-item" type="button" role="menuitem"><span>◎</span> Profile</button>
+              <button className="profile-menu-item" type="button" role="menuitem"><span>⚙</span> Settings</button>
+              <div className="profile-menu-divider" />
+              <button className="profile-menu-item profile-menu-item--arrow" type="button" role="menuitem"><span>◉</span> Help <b>›</b></button>
+              <button className="profile-menu-item profile-menu-item--arrow" type="button" role="menuitem" onClick={() => { setProfileMenuOpen(false); chat.reset(); void auth.logout().catch(() => undefined); }}><span>↪</span> Log out <b>›</b></button>
+            </div>
+          )}
+          <button className={`menu-item user-profile ${profileMenuOpen ? 'active' : ''}`} aria-expanded={profileMenuOpen} aria-haspopup="menu" onClick={() => setProfileMenuOpen((open) => !open)} title="Open profile menu">
             <div className="profile-circle">{(auth.user.name || auth.user.email)[0].toUpperCase()}</div>
             <span className="profile-name">{auth.user.name || auth.user.email}</span>
+            <span className="profile-trigger-chevron" aria-hidden="true">⌄</span>
           </button>
         </div>
       </aside>

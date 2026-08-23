@@ -22,16 +22,22 @@ export function useAuth() {
   const login = useCallback(async (email: string, password: string) => {
     const result = await auth.login(email, password);
     setUser(result.user);
+    window.history.replaceState({}, '', '/');
   }, []);
 
   const register = useCallback(async (email: string, password: string, name?: string) => {
     const result = await auth.register(email, password, name);
     setUser(result.user);
+    window.history.replaceState({}, '', '/');
   }, []);
 
   const logout = useCallback(async () => {
-    await auth.logout();
-    setUser(null);
+    try {
+      await auth.logout();
+    } finally {
+      setUser(null);
+      window.history.replaceState({}, '', '/login');
+    }
   }, []);
 
   return { user, loading, login, register, logout };
