@@ -19,6 +19,9 @@ export default function MessageItem({ message, isStreaming, onRetry, onRegenerat
 
   return (
     <div className={`message-item message-item--${message.role}`}>
+      {message.role === 'assistant' && (
+        <div className="assistant-label"><span className="assistant-avatar">✦</span><span>Sunvix AI</span><i /></div>
+      )}
       <div className="message-content">
         {message.role === 'assistant' ? <MarkdownContent content={message.content} /> : <div className="user-message-text">{message.content}</div>}
         {isStreaming && <span className="streaming-cursor" aria-hidden="true" />}
