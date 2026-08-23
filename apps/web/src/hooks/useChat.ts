@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ChatRequestError, getConversationMessages, getConversations, streamMessage, ChatGenerationMode } from '../services/chatService';
+import { ChatRequestError, getConversationMessages, getConversations, streamMessage, ChatGenerationMode, ChatProvider } from '../services/chatService';
 import { ChatMessage } from '../types/chat';
 
 function generateId(): string { return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`; }
@@ -9,7 +9,7 @@ const latestConversationKey = (userId: string) => `ai-chatbot:latest-conversatio
 export type ChatPhase = 'idle' | 'sending' | 'waiting' | 'streaming' | 'complete' | 'error' | 'aborted';
 export interface UseChatReturn {
   messages: ChatMessage[]; conversations: ChatConversation[]; activeConversationId: string; input: string;
-  loading: boolean; phase: ChatPhase; error: string | null; setInput: (value: string) => void;
+  loading: boolean; phase: ChatPhase; error: string | null; provider: ChatProvider; setInput: (value: string) => void; setProvider: (provider: ChatProvider) => void;
   handleSend: () => Promise<void>; stopGeneration: () => void; retry: () => Promise<void>; regenerate: () => Promise<void>;
   newChat: () => void; selectConversation: (conversationId: string) => Promise<void>; reset: () => void;
 }
@@ -19,6 +19,7 @@ export function useChat(userId?: string): UseChatReturn {
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState('');
   const [input, setInput] = useState('');
+  const [provider, setProvider] = useState<ChatProvider>('gemini');
   const [phase, setPhase] = useState<ChatPhase>('idle');
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -72,7 +73,7 @@ export function useChat(userId?: string): UseChatReturn {
     } catch (err) { setError(err instanceof Error ? err.message : 'Unable to load messages.'); setPhase('error'); }
   }, [conversations, userId]);
 
-  const sendPrompt = useCallback(async (prompt: string, conversationId: string, mode: ChatGenerationMode) => {
+  const sendPrompt = useCallback(async (prompt: string, conversationId: string, mode: ChatGenerationMode, selectedProvider: ChatProvider) => {
     const assistantId = generateId();
     const controller = new AbortController();
     abortRef.current = controller;
@@ -102,7 +103,7 @@ export function useChat(userId?: string): UseChatReturn {
         } else {
           throw new ChatRequestError(500, event.data.code, event.data.message);
         }
-      }, controller.signal, mode);
+      }, controller.signal, mode, selectedProvider);
       if (!completed) throw new ChatRequestError(500, 'STREAM_INCOMPLETE', 'The response ended unexpectedly. Please try again.');
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') setPhase('aborted');
@@ -116,8 +117,8 @@ export function useChat(userId?: string): UseChatReturn {
   const handleSend = useCallback(async () => {
     const trimmed = input.trim();
     if (!trimmed || loading || !activeConversationId) return;
-    setInput(''); await sendPrompt(trimmed, activeConversationId, 'new');
-  }, [activeConversationId, input, loading, sendPrompt]);
+    setInput(''); await sendPrompt(trimmed, activeConversationId, 'new', provider);
+  }, [activeConversationId, input, loading, provider, sendPrompt]);
 
   const stopGeneration = useCallback(() => { abortRef.current?.abort(); }, []);
 
@@ -125,8 +126,8 @@ export function useChat(userId?: string): UseChatReturn {
     if (loading) return;
     const current = conversations.find(({ id }) => id === activeConversationId);
     const lastUser = [...(current?.messages ?? [])].reverse().find((item) => item.role === 'user');
-    if (lastUser) await sendPrompt(lastUser.content, activeConversationId, 'retry');
-  }, [activeConversationId, conversations, loading, sendPrompt]);
+    if (lastUser) await sendPrompt(lastUser.content, activeConversationId, 'retry', provider);
+  }, [activeConversationId, conversations, loading, provider, sendPrompt]);
 
   const regenerate = useCallback(async () => {
     if (loading) return;
@@ -136,12 +137,12 @@ export function useChat(userId?: string): UseChatReturn {
     if (!lastUser) return;
     if (lastAssistantIndex >= 0) setConversations((previous) => previous.map((conversation) => conversation.id === activeConversationId
       ? { ...conversation, messages: conversation.messages.filter((_, index) => index !== lastAssistantIndex) } : conversation));
-    await sendPrompt(lastUser.content, activeConversationId, 'regenerate');
-  }, [activeConversationId, conversations, loading, sendPrompt]);
+    await sendPrompt(lastUser.content, activeConversationId, 'regenerate', provider);
+  }, [activeConversationId, conversations, loading, provider, sendPrompt]);
 
   const reset = useCallback(() => {
     abortRef.current?.abort(); setConversations([]); setActiveConversationId(''); setInput(''); setPhase('idle'); setError(null);
   }, []);
 
-  return { messages, conversations, activeConversationId, input, loading, phase, error, setInput, handleSend, stopGeneration, retry, regenerate, newChat, selectConversation, reset };
+  return { messages, conversations, activeConversationId, input, loading, phase, error, provider, setProvider, setInput, handleSend, stopGeneration, retry, regenerate, newChat, selectConversation, reset };
 }
