@@ -1,20 +1,40 @@
 import { ApiError } from '../types/chat';
 
-export interface SendMessageResult { message: string; conversationId: string }
-interface SendMessageResponse { message: string; conversationId: string }
-interface SendMessageErrorResponse { error: ApiError }
-
 export interface ConversationSummary { id: string; title: string | null; createdAt: string; updatedAt: string }
 interface ConversationsResponse { conversations: ConversationSummary[] }
 interface MessagesResponse { messages: Array<{ id: string; role: 'user' | 'assistant'; content: string }> }
 
+export type ChatStreamEvent =
+  | { event: 'token'; data: { token: string } }
+  | { event: 'done'; data: { conversationId: string; ttftMs: number | null; latencyMs: number } }
+  | { event: 'error'; data: { code: string; message: string } };
+
+export class ChatRequestError extends Error {
+  constructor(public readonly status: number, public readonly code: string, message: string) {
+    super(message);
+    this.name = 'ChatRequestError';
+  }
+}
+
 const API_URL = import.meta.env.PROD ? '' : import.meta.env.VITE_API_URL;
+
+function messageForStatus(status: number): string {
+  switch (status) {
+    case 401: return 'Your session has expired. Please sign in again.';
+    case 403: return 'You do not have permission to use this conversation.';
+    case 429: return 'You are sending messages too quickly. Please wait and try again.';
+    case 502:
+    case 503: return 'The AI service is temporarily unavailable. Please try again.';
+    case 500: return 'Something went wrong on the server. Please try again.';
+    default: return 'Unable to send your message. Please try again.';
+  }
+}
 
 async function request<T>(path: string): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, { credentials: 'include' });
   if (!response.ok) {
-    const errorData = (await response.json().catch(() => null)) as SendMessageErrorResponse | null;
-    throw new Error(errorData?.error?.message ?? 'Something went wrong. Please try again.');
+    const errorData = (await response.json().catch(() => null)) as { error?: ApiError } | null;
+    throw new ChatRequestError(response.status, errorData?.error?.code ?? 'REQUEST_FAILED', messageForStatus(response.status));
   }
   return response.json() as Promise<T>;
 }
@@ -28,18 +48,58 @@ export async function getConversationMessages(conversationId: string) {
   return { ...result, messages: [...result.messages].reverse() };
 }
 
-export async function sendMessage(message: string, conversationId?: string): Promise<SendMessageResult> {
-  const response = await fetch(`${API_URL}/api/chat`, {
-    method: 'POST',
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message, ...(conversationId ? { conversationId } : {}) }),
-  });
-
-  if (!response.ok) {
-    const errorData = (await response.json().catch(() => null)) as SendMessageErrorResponse | null;
-    throw new Error(errorData?.error?.message ?? 'Something went wrong. Please try again.');
+export async function streamMessage(
+  message: string,
+  conversationId: string | undefined,
+  onEvent: (event: ChatStreamEvent) => void,
+  signal: AbortSignal,
+): Promise<void> {
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}/api/chat`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
+      body: JSON.stringify({ message, ...(conversationId ? { conversationId } : {}) }),
+      signal,
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') throw error;
+    throw new ChatRequestError(0, 'NETWORK_ERROR', 'Network connection failed. Check your connection and try again.');
   }
 
-  return (await response.json()) as SendMessageResponse;
+  if (!response.ok) {
+    const errorData = (await response.json().catch(() => null)) as { error?: ApiError } | null;
+    throw new ChatRequestError(response.status, errorData?.error?.code ?? 'REQUEST_FAILED', messageForStatus(response.status));
+  }
+  if (!response.body) throw new ChatRequestError(0, 'STREAM_UNAVAILABLE', 'Streaming is unavailable. Please try again.');
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  const consume = (raw: string) => {
+    buffer += raw;
+    const events = buffer.split('\n\n');
+    buffer = events.pop() ?? '';
+    for (const block of events) {
+      const eventLine = block.split('\n').find((line) => line.startsWith('event: '));
+      const dataLine = block.split('\n').find((line) => line.startsWith('data: '));
+      if (!eventLine || !dataLine) continue;
+      const event = eventLine.slice(7) as ChatStreamEvent['event'];
+      const data = JSON.parse(dataLine.slice(6)) as ChatStreamEvent['data'];
+      onEvent({ event, data } as ChatStreamEvent);
+    }
+  };
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      consume(decoder.decode(value, { stream: true }));
+    }
+    consume(decoder.decode());
+  } finally {
+    reader.releaseLock();
+  }
 }
