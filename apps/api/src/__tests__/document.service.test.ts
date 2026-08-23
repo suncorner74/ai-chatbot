@@ -1,4 +1,4 @@
-import { DocumentService } from './document.service';
+import { DocumentService } from '../modules/rag/document.service';
 
 describe('DocumentService validation', () => {
   const service = new DocumentService();

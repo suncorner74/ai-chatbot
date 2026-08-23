@@ -59,7 +59,8 @@ describe('useChat hook', () => {
       undefined,
       expect.any(Function),
       expect.any(AbortSignal),
-      'new'
+      'new',
+      'gemini'
     );
     expect(result.current.input).toBe('');
     expect(result.current.loading).toBe(false);
