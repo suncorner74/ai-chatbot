@@ -1,4 +1,5 @@
 import ChatWindow from './components/chat/ChatWindow';
+import DocumentManager from './components/documents/DocumentManager';
 import AuthScreen from './components/auth/AuthScreen';
 import { useAuth } from './hooks/useAuth';
 import { useChat } from './hooks/useChat';
@@ -7,113 +8,37 @@ import { useEffect, useRef, useState } from 'react';
 function App() {
   const auth = useAuth();
   const chat = useChat(auth.user?.id);
+  const [view, setView] = useState<'chat' | 'documents'>('chat');
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(
-    () => typeof window !== 'undefined' && window.matchMedia('(max-width: 700px)').matches
-  );
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 700px)').matches);
 
-  useEffect(() => {
-    if (!auth.loading && !auth.user && window.location.pathname !== '/login') {
-      window.history.replaceState({}, '', '/login');
-    }
-  }, [auth.loading, auth.user]);
+  useEffect(() => { if (!auth.loading && !auth.user && window.location.pathname !== '/login') window.history.replaceState({}, '', '/login'); }, [auth.loading, auth.user]);
+  useEffect(() => { if (!profileMenuOpen) return; const closeMenu = (event: MouseEvent) => { if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) setProfileMenuOpen(false); }; const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') setProfileMenuOpen(false); }; document.addEventListener('mousedown', closeMenu); document.addEventListener('keydown', closeOnEscape); return () => { document.removeEventListener('mousedown', closeMenu); document.removeEventListener('keydown', closeOnEscape); }; }, [profileMenuOpen]);
 
-  useEffect(() => {
-    if (!profileMenuOpen) return;
-    const closeMenu = (event: MouseEvent) => {
-      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) setProfileMenuOpen(false);
-    };
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setProfileMenuOpen(false);
-    };
-    document.addEventListener('mousedown', closeMenu);
-    document.addEventListener('keydown', closeOnEscape);
-    return () => {
-      document.removeEventListener('mousedown', closeMenu);
-      document.removeEventListener('keydown', closeOnEscape);
-    };
-  }, [profileMenuOpen]);
+  if (auth.loading) return <main className="auth-screen"><div className="auth-card"><p>Loading your account…</p></div></main>;
+  if (!auth.user) return <AuthScreen onLogin={auth.login} onRegister={auth.register} />;
 
-  if (auth.loading) {
-    return <main className="auth-screen"><div className="auth-card"><p>Loading your account…</p></div></main>;
-  }
-
-  if (!auth.user) {
-    return <AuthScreen onLogin={auth.login} onRegister={auth.register} />;
-  }
-
-  return (
-    <div className={`app-container ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
-      <div className="ai-landscape" aria-hidden="true">
-        <div className="ai-halo"><span>INTELLIGENCE</span></div>
-        <div className="ai-core"><span className="ai-core-sun" /><strong>SUNVIX AI</strong></div>
-        <span className="ai-node ai-node--one">AI</span>
-        <span className="ai-node ai-node--two">AI</span>
-        <span className="ai-node ai-node--three">AI</span>
-        <span className="ai-node ai-node--four">AI</span>
+  return <div className={`app-container ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
+    <div className="ai-landscape" aria-hidden="true"><div className="ai-halo"><span>INTELLIGENCE</span></div><div className="ai-core"><span className="ai-core-sun" /><strong>SUNVIX AI</strong></div><span className="ai-node ai-node--one">AI</span><span className="ai-node ai-node--two">AI</span><span className="ai-node ai-node--three">AI</span><span className="ai-node ai-node--four">AI</span></div>
+    <aside className="sidebar">
+      <div className="sidebar-header"><img className="brand-logo" src="/sunvix-logo.svg" alt="" /><h2>Sunvix AI</h2><div className="header-icons"><button className="sidebar-toggle" type="button" aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'} aria-expanded={!sidebarCollapsed} onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}>{sidebarCollapsed ? '›' : '‹'}</button></div></div>
+      <div className="sidebar-menu">
+        <button className="menu-item new-chat" onClick={() => { setView('chat'); chat.newChat(); }}><span className="icon">💬</span> New chat</button>
+        <button className="menu-item"><span className="icon">🖼️</span> Images</button>
+        <button className={`menu-item ${view === 'documents' ? 'active' : ''}`} onClick={() => setView('documents')}><span className="icon">📚</span> Library</button>
+        <button className="menu-item"><span className="icon">🔌</span> Plugins</button>
+        <div className="menu-section"><p className="section-title">Recents</p>{chat.conversations.map((conversation) => <button className={`menu-item recent-item ${conversation.id === chat.activeConversationId ? 'active' : ''}`} key={conversation.id} onClick={() => { setView('chat'); void chat.selectConversation(conversation.id); }}><span className="recent-icon" aria-hidden="true">◷</span><span className="recent-title">{conversation.title}</span></button>)}</div>
       </div>
-      <aside className="sidebar">
-        <div className="sidebar-header">
-          <img className="brand-logo" src="/sunvix-logo.svg" alt="" />
-          <h2>Sunvix AI</h2>
-          <div className="header-icons">
-            <button className="sidebar-toggle" type="button" aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'} aria-expanded={!sidebarCollapsed} onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}>
-              {sidebarCollapsed ? '›' : '‹'}
-            </button>
-          </div>
-        </div>
-        <div className="sidebar-menu">
-          <button className="menu-item new-chat" onClick={chat.newChat}><span className="icon">💬</span> New chat</button>
-          <button className="menu-item"><span className="icon">🖼️</span> Images</button>
-          <button className="menu-item"><span className="icon">📚</span> Library</button>
-          <button className="menu-item"><span className="icon">🔌</span> Plugins</button>
-          <div className="menu-section">
-            <p className="section-title">Recents</p>
-            {chat.conversations.map((conversation) => (
-              <button className={`menu-item recent-item ${conversation.id === chat.activeConversationId ? 'active' : ''}`} key={conversation.id} onClick={() => chat.selectConversation(conversation.id)}>
-                <span className="recent-icon" aria-hidden="true">◷</span>
-                <span className="recent-title">{conversation.title}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="sidebar-footer" ref={profileMenuRef}>
-          {profileMenuOpen && (
-            <div className="profile-menu" role="menu">
-              <div className="profile-menu-account">
-                <div className="profile-circle">{(auth.user.name || auth.user.email)[0].toUpperCase()}</div>
-                <div>
-                  <strong>{auth.user.name || auth.user.email}</strong>
-                  <span>Free</span>
-                </div>
-                <span className="profile-menu-chevron" aria-hidden="true">›</span>
-              </div>
-              <div className="profile-menu-divider" />
-              <button className="profile-menu-item" type="button" role="menuitem"><span>✧</span> Upgrade plan</button>
-              <button className="profile-menu-item" type="button" role="menuitem"><span>◷</span> Personalization</button>
-              <button className="profile-menu-item" type="button" role="menuitem"><span>◎</span> Profile</button>
-              <button className="profile-menu-item" type="button" role="menuitem"><span>⚙</span> Settings</button>
-              <div className="profile-menu-divider" />
-              <button className="profile-menu-item profile-menu-item--arrow" type="button" role="menuitem"><span>◉</span> Help <b>›</b></button>
-              <button className="profile-menu-item profile-menu-item--arrow" type="button" role="menuitem" onClick={() => { setProfileMenuOpen(false); chat.reset(); void auth.logout().catch(() => undefined); }}><span>↪</span> Log out <b>›</b></button>
-            </div>
-          )}
-          <button className={`menu-item user-profile ${profileMenuOpen ? 'active' : ''}`} aria-expanded={profileMenuOpen} aria-haspopup="menu" onClick={() => setProfileMenuOpen((open) => !open)} title="Open profile menu">
-            <div className="profile-circle">{(auth.user.name || auth.user.email)[0].toUpperCase()}</div>
-            <span className="profile-name">{auth.user.name || auth.user.email}</span>
-            <span className="profile-trigger-chevron" aria-hidden="true">⌄</span>
-          </button>
-        </div>
-      </aside>
-      <main className="app-main">
-        <button className="mobile-sidebar-toggle" type="button" aria-label={sidebarCollapsed ? 'Open sidebar' : 'Close sidebar'} onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}>
-          {sidebarCollapsed ? '☰' : '×'}
-        </button>
-        <ChatWindow chat={chat} />
-      </main>
-    </div>
-  );
+      <div className="sidebar-footer" ref={profileMenuRef}>
+        {profileMenuOpen && <div className="profile-menu" role="menu"><div className="profile-menu-account"><div className="profile-circle">{(auth.user.name || auth.user.email)[0].toUpperCase()}</div><div><strong>{auth.user.name || auth.user.email}</strong><span>Free</span></div><span className="profile-menu-chevron" aria-hidden="true">›</span></div><div className="profile-menu-divider" /><button className="profile-menu-item" type="button"><span>✧</span> Upgrade plan</button><button className="profile-menu-item" type="button"><span>◷</span> Personalization</button><button className="profile-menu-item" type="button"><span>◎</span> Profile</button><button className="profile-menu-item" type="button"><span>⚙</span> Settings</button><div className="profile-menu-divider" /><button className="profile-menu-item profile-menu-item--arrow" type="button"><span>◉</span> Help <b>›</b></button><button className="profile-menu-item profile-menu-item--arrow" type="button" onClick={() => { setProfileMenuOpen(false); chat.reset(); void auth.logout().catch(() => undefined); }}><span>↪</span> Log out <b>›</b></button></div>}
+        <button className={`menu-item user-profile ${profileMenuOpen ? 'active' : ''}`} aria-expanded={profileMenuOpen} aria-haspopup="menu" onClick={() => setProfileMenuOpen((open) => !open)} title="Open profile menu"><div className="profile-circle">{(auth.user.name || auth.user.email)[0].toUpperCase()}</div><span className="profile-name">{auth.user.name || auth.user.email}</span><span className="profile-trigger-chevron" aria-hidden="true">⌄</span></button>
+      </div>
+    </aside>
+    <main className="app-main">
+      <button className="mobile-sidebar-toggle" type="button" aria-label={sidebarCollapsed ? 'Open sidebar' : 'Close sidebar'} onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}>{sidebarCollapsed ? '☰' : '×'}</button>
+      {view === 'documents' ? <DocumentManager onChatWithDocument={(documentId) => { window.localStorage.setItem('ai-chatbot:rag-document', documentId); setView('chat'); chat.newChat(); }} /> : <ChatWindow chat={chat} />}
+    </main>
+  </div>;
 }
-
 export default App;
