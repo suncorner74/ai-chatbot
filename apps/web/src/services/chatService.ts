@@ -4,6 +4,7 @@ export interface ConversationSummary { id: string; title: string | null; created
 interface ConversationsResponse { conversations: ConversationSummary[] }
 interface MessagesResponse { messages: Array<{ id: string; role: 'user' | 'assistant'; content: string }> }
 export type ChatGenerationMode = 'new' | 'retry' | 'regenerate';
+export type ChatProvider = 'gemini' | 'openrouter';
 
 export type ChatStreamEvent =
   | { event: 'token'; data: { token: string } }
@@ -21,6 +22,7 @@ const API_URL = import.meta.env.PROD ? '' : import.meta.env.VITE_API_URL;
 
 function messageForStatus(status: number): string {
   switch (status) {
+    case 400: return 'Invalid chat request. Please check the selected AI model.';
     case 401: return 'Your session has expired. Please sign in again.';
     case 403: return 'You do not have permission to use this conversation.';
     case 429: return 'You are sending messages too quickly. Please wait and try again.';
@@ -53,12 +55,13 @@ export async function streamMessage(
   onEvent: (event: ChatStreamEvent) => void,
   signal: AbortSignal,
   mode: ChatGenerationMode = 'new',
+  provider: ChatProvider = 'gemini',
 ): Promise<void> {
   let response: Response;
   try {
     response = await fetch(`${API_URL}/api/chat`, {
       method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
-      body: JSON.stringify({ message, ...(conversationId ? { conversationId } : {}), mode }), signal,
+      body: JSON.stringify({ message, ...(conversationId ? { conversationId } : {}), mode, provider }), signal,
     });
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') throw error;
