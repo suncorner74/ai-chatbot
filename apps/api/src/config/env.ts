@@ -3,12 +3,6 @@ import dotenv from 'dotenv';
 
 dotenv.config({ path: path.resolve(__dirname, '../../../../.env') });
 
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`[Config] Missing required environment variable: ${name}\n  → Copy .env.example to .env and fill in your values.`);
-  return value;
-}
-
 export const env = {
   port: parseInt(process.env.PORT || '5000', 10),
   nodeEnv: process.env.NODE_ENV || 'development',
@@ -17,6 +11,9 @@ export const env = {
   llmModel: process.env.LLM_MODEL || 'gpt-4o-mini',
   geminiApiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GEMINI_API_KEY || '',
   geminiModel: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
+  ragEmbeddingModel: process.env.RAG_EMBEDDING_MODEL || 'gemini-embedding-001',
+  ragEmbeddingDimensions: parseInt(process.env.RAG_EMBEDDING_DIMENSIONS || '768', 10),
+  maxDocumentSizeBytes: parseInt(process.env.MAX_DOCUMENT_SIZE_BYTES || String(20 * 1024 * 1024), 10),
   databaseUrl: process.env.DATABASE_URL || '',
   sessionSecret: process.env.SESSION_SECRET || '',
   sessionCookieName: process.env.SESSION_COOKIE_NAME || (process.env.NODE_ENV === 'production' ? '__Host-session' : 'session'),
