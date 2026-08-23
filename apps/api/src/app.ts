@@ -6,6 +6,7 @@ import authRoutes from './modules/auth/auth.routes';
 import { env } from './config/env';
 
 const app = express();
+app.set('trust proxy', env.nodeEnv === 'production' ? 1 : false);
 
 const allowedOrigins = [env.frontendUrl, 'https://ai-chatbot-web.vercel.app'];
 
@@ -19,6 +20,17 @@ app.use(cors({
   },
   credentials: true,
 }));
+
+app.use((_req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  if (env.nodeEnv === 'production') {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  }
+  next();
+});
 
 app.use(express.json({ limit: '256kb' }));
 
