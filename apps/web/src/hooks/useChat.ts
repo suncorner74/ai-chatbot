@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ChatRequestError, getConversationMessages, getConversations, streamMessage, ChatGenerationMode, ChatProvider } from '../services/chatService';
+import { ChatRequestError, ChatGenerationMode, ChatProvider } from '../services/chatService';
 import { ChatMessage } from '../types/chat';
 function generateId(): string { return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`; }
 function isLocalConversationId(id: string) { return /^\d+-[a-z0-9]+$/.test(id); }
