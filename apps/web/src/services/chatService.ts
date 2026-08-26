@@ -21,3 +21,24 @@ export async function streamMessage(message: string, conversationId: string | un
   const consume = (raw: string) => { buffer += raw; const events = buffer.split('\n\n'); buffer = events.pop() ?? ''; for (const block of events) { const eventLine = block.split('\n').find((line) => line.startsWith('event: ')); const dataLine = block.split('\n').find((line) => line.startsWith('data: ')); if (!eventLine || !dataLine) continue; const event = eventLine.slice(7) as ChatStreamEvent['event']; const data = JSON.parse(dataLine.slice(6)); onEvent({ event, data } as ChatStreamEvent); } };
   try { while (true) { const { done, value } = await reader.read(); if (done) break; consume(decoder.decode(value, { stream: true })); } consume(decoder.decode()); if (signal.aborted) throw new DOMException('Generation aborted', 'AbortError'); } finally { try { await reader.cancel(); } catch {} reader.releaseLock(); }
 }
+
+export async function deleteConversation(conversationId: string): Promise<void> {
+  const response = await fetch(`${API_URL}/api/conversations/${conversationId}`, { method: 'DELETE', credentials: 'include' });
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null) as { error?: ApiError } | null;
+    throw new ChatRequestError(response.status, errorData?.error?.code ?? 'REQUEST_FAILED', messageForStatus(response.status));
+  }
+}
+
+export async function renameConversation(conversationId: string, title: string): Promise<void> {
+  const response = await fetch(`${API_URL}/api/conversations/${conversationId}`, { 
+    method: 'PATCH', 
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title }),
+    credentials: 'include' 
+  });
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null) as { error?: ApiError } | null;
+    throw new ChatRequestError(response.status, errorData?.error?.code ?? 'REQUEST_FAILED', messageForStatus(response.status));
+  }
+}

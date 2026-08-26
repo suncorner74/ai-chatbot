@@ -76,5 +76,23 @@ router.delete('/:id', async (req: AuthenticatedRequest, res, next) => {
     res.status(204).send();
   } catch (error) { next(error); }
 });
+router.patch('/:id', async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const title = typeof req.body?.title === 'string' ? req.body.title.trim().slice(0, 200) : undefined;
+    if (title === undefined) {
+      res.status(400).json({ error: { code: 'INVALID_REQUEST', message: 'Title is required.' } });
+      return;
+    }
+    const result = await prisma.conversation.updateMany({
+      where: { id: req.params.id, userId: req.user!.id },
+      data: { title }
+    });
+    if (result.count === 0) {
+      res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Conversation not found.' } });
+      return;
+    }
+    res.json({ success: true });
+  } catch (error) { next(error); }
+});
 
 export default router;
