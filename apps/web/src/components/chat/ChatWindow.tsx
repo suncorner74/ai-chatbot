@@ -1,6 +1,7 @@
 import { useChat, UseChatReturn } from '../../hooks/useChat';
 import ChatInput from './ChatInput';
 import './ChatWindow.css';
+import './ChatWindow.mobile.css';
 import MessageList from './MessageList';
 
 interface ChatWindowProps { chat?: UseChatReturn; }
