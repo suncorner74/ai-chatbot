@@ -1,0 +1,21 @@
+/* Mobile sidebar must stay above page-level content (including Library). */
+@media (max-width: 700px) {
+  .app-container .mobile-sidebar-toggle {
+    position: fixed;
+    top: max(10px, env(safe-area-inset-top));
+    left: max(10px, env(safe-area-inset-left));
+    z-index: 10000;
+    pointer-events: auto;
+    touch-action: manipulation;
+  }
+
+  .app-container .sidebar {
+    z-index: 9999;
+  }
+
+  .app-container.sidebar-collapsed .mobile-sidebar-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
