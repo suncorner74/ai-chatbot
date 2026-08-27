@@ -1,7 +1,10 @@
 import { DragEvent, useEffect, useRef, useState } from 'react';
 import './image-studio.css';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+// Use the same API origin as the existing auth flow. This is important for
+// HttpOnly session cookies: in production the web app uses same-origin /api
+// routes, while Vite proxies /api to the backend during local development.
+const API_URL = import.meta.env.PROD ? '' : (import.meta.env.VITE_API_URL || '');
 const MAX_BYTES = 10 * 1024 * 1024;
 const COMPRESS_THRESHOLD = 6 * 1024 * 1024;
 
@@ -111,6 +114,7 @@ export default function ImageStudio() {
         body: JSON.stringify({ operation, prompt: prompt.trim(), image }),
       });
       const data = await response.json().catch(() => ({}));
+      if (response.status === 401) throw new Error('Your session has expired. Please sign in again.');
       if (!response.ok) throw new Error(data.error?.message || data.error || 'Image generation failed.');
       if (!data.imageDataUrl) throw new Error('Image provider returned no image.');
       setResult(data.imageDataUrl);
