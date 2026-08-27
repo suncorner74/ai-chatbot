@@ -4,6 +4,13 @@ import { env } from '../../config/env';
 
 type Operation = 'generate' | 'edit' | 'enhance';
 type InputImage = { mimeType?: string; data?: string };
+type AspectRatio = `${number}:${number}`;
+
+const DEFAULT_ASPECT_RATIO: AspectRatio = '1:1';
+
+function getAspectRatio(value: string): AspectRatio {
+  return /^\d+(?:\.\d+)?:\d+(?:\.\d+)?$/.test(value) ? value as AspectRatio : DEFAULT_ASPECT_RATIO;
+}
 
 export class ImageService {
   async generate(operation: Operation, prompt: string, image?: InputImage) {
@@ -19,7 +26,7 @@ export class ImageService {
     const result = await generateImage({
       model: google.image(env.imageModel),
       prompt: input,
-      aspectRatio: env.imageAspectRatio,
+      aspectRatio: getAspectRatio(env.imageAspectRatio),
       providerOptions: { google: { imageConfig: { imageSize: env.imageSize } } },
     });
 
